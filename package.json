@@ -1,0 +1,26 @@
+{
+  "name": "solana_telegram_bot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "start": "node src/index.js",
+    "test-telegram": "node src/test-telegram.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@solana/web3.js": "^1.98.2",
+    "bs58": "^4.0.1",
+    "dotenv": "^16.5.0",
+    "input": "^1.0.1",
+    "tdl": "^8.0.2",
+    "telegram": "^2.26.22",
+    "telegram-mtproto": "^1.0.5"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
