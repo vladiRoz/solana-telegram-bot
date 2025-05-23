@@ -11,5 +11,8 @@
     "compute_unit_price_micro_lamports": 50000,
     "compute_unit_limit": 200000,
     "purchase_amount_sol": 0.006
+  },
+  "logging": {
+    "show_timestamps": true
   }
 }

@@ -4,7 +4,7 @@ const { StringSession } = require('telegram/sessions');
 const fs = require('fs');
 const path = require('path');
 const input = require('input');
-const { log } = require('console');
+const { log } = require("../utils/logger");
 
 // Load config
 const configPath = path.resolve(__dirname, '../../config/config.json');
@@ -21,7 +21,7 @@ const apiHash = process.env.TELEGRAM_APP_API_HASH || '';
 let stringSession = new StringSession(process.env.TELEGRAM_STRING_SESSION || '');
 
 if (!apiId || !apiHash) {
-    console.error('Error: TELEGRAM_APP_API_ID and TELEGRAM_APP_API_HASH must be defined in .env file');
+    log('Error: TELEGRAM_APP_API_ID and TELEGRAM_APP_API_HASH must be defined in .env file');
     process.exit(1);
 }
 
@@ -39,11 +39,11 @@ function setMessageHandler(callback) {
  */
 async function startClient() {
     if (client) {
-        console.log('Client already started');
+        log('Client already started');
         return;
     }
 
-    console.log('Creating Telegram client...');
+    log('Creating Telegram client...');
     client = new TelegramClient(stringSession, apiId, apiHash, {
         connectionRetries: 5,
         useWSS: true, // Use secure WebSocket
@@ -56,7 +56,7 @@ async function startClient() {
 
     try {
         // Set timeout for initial connection
-        console.log('Attempting to connect to Telegram servers...');
+        log('Attempting to connect to Telegram servers...');
         const connectionPromise = client.connect();
         const timeoutPromise = new Promise((_, reject) => 
             setTimeout(() => reject(new Error('Connection timeout after 30 seconds')), 30000)
@@ -64,32 +64,32 @@ async function startClient() {
         
         try {
             await Promise.race([connectionPromise, timeoutPromise]);
-            console.log('Initial connection successful');
+            log('Initial connection successful');
         } catch (error) {
-            console.error('Connection timeout or error:', error.message);
-            console.log('Trying alternative connection method...');
+            log('Connection timeout or error: ' + error.message);
+            log('Trying alternative connection method...');
         }
 
         // Start the client with phone login flow if not authenticated
         if (!process.env.TELEGRAM_STRING_SESSION) {
-            console.log('No session found, starting authentication...');
+            log('No session found, starting authentication...');
             await client.start({
                 phoneNumber: async () => await input.text('Please enter your phone number: '),
                 password: async () => await input.text('Please enter your password: '),
                 phoneCode: async () => await input.text('Please enter the code you received: '),
-                onError: (err) => console.log(err),
+                onError: (err) => log(err),
             });
 
             // Save the session string to use it next time
             const sessionString = client.session.save();
-            console.log('Authentication successful!');
-            console.log('Please add this to your .env file as TELEGRAM_STRING_SESSION:');
-            console.log(sessionString);
+            log('Authentication successful!');
+            log('Please add this to your .env file as TELEGRAM_STRING_SESSION:');
+            log(sessionString);
             isAuthenticated = true;
         } else {
-            console.log('Using existing session, connecting...');
+            log('Using existing session, connecting...');
             isAuthenticated = true;
-            console.log('Connection successful!');
+            log('Connection successful!');
         }
 
         // Add message event handler
@@ -97,7 +97,7 @@ async function startClient() {
 
         return client;
     } catch (error) {
-        console.error('Failed to start Telegram client:', error);
+        log('Failed to start Telegram client: ' + error);
         throw error;
     }
 }
@@ -107,29 +107,27 @@ async function startClient() {
  */
 function setupMessageHandler() {
     if (!client) {
-        console.error('Client not initialized. Call startClient() first');
+        log('Client not initialized. Call startClient() first');
         return;
     }
 
-    console.log('Setting up message handlers...');
-    console.log(`Tracking channels: ${config.telegram_channels.join(', ')}`);
+    log('Setting up message handlers...');
+    log(`Tracking channels: ${config.telegram_channels.join(', ')}`);
 
     // Add event handler for new messages
     client.addEventHandler(async (event) => {
         try {
-            // console.log(`Received event: ${event.className}`);
-            
             // Check if this is a message event
             if (event.className === 'UpdateNewMessage' || event.className === 'UpdateNewChannelMessage') {
                 const message = event.message;
 
                 if (!message) {
-                    console.log('Skipping: No message in event');
+                    log('Skipping: No message in event');
                     return;
                 }
                 
                 if (!message.peerId) {
-                    console.log('Skipping: No peerId in message');
+                    log('Skipping: No peerId in message');
                     return;
                 }
                 
@@ -137,12 +135,12 @@ function setupMessageHandler() {
                     // Get the chat entity from peerId
                     const chat = await client.getEntity(message.peerId);
 
-                    console.log('chat username', chat.username);
-                    console.log('chat title', chat.title);
-                    console.log('chat firstName', chat.firstName);
+                    log('chat username: ' + chat.username);
+                    log('chat title: ' + chat.title);
+                    log('chat firstName: ' + chat.firstName);
                     
                     if (!chat) {
-                        console.log('Skipping: Could not retrieve chat entity');
+                        log('Skipping: Could not retrieve chat entity');
                         return;
                     }
                     
@@ -151,7 +149,7 @@ function setupMessageHandler() {
                     
                     // Check if this is a tracked channel
                     if (config.telegram_channels.includes(chatTitle)) {
-                        console.log(`Message is from a tracked channel: ${chatTitle}`);
+                        log(`Message is from a tracked channel: ${chatTitle}`);
                         
                         if (messageHandlerCallback && messageText) {
                             // Convert the message to a format compatible with the existing code
@@ -167,15 +165,15 @@ function setupMessageHandler() {
                             
                             messageHandlerCallback(formattedMsg);
                         } else {
-                            console.log('Message handler not set or message empty.');
+                            log('Message handler not set or message empty.');
                         }
                     }
                 } catch (error) {
-                    console.error('Error retrieving or processing chat entity:', error);
+                    log('Error retrieving or processing chat entity: ' + error);
                 }
             }
         } catch (error) {
-            console.error('Error processing message:', error);
+            log('Error processing message: ' + error);
         }
     });
 }
@@ -186,16 +184,16 @@ function setupMessageHandler() {
  */
 async function stopClient() {
     if (!client) {
-        console.log('Client is not running');
+        log('Client is not running');
         return;
     }
     
     try {
         await client.disconnect();
         client = null;
-        console.log('Telegram client has been disconnected');
+        log('Telegram client has been disconnected');
     } catch (error) {
-        console.error('Error stopping client:', error);
+        log('Error stopping client: ' + error);
     }
 }
 
@@ -206,7 +204,7 @@ async function stopClient() {
  */
 async function getLastMessage(chatIdentifier) {
     if (!client) {
-        console.error('Client not initialized. Call startClient() first');
+        log('Client not initialized. Call startClient() first');
         return null;
     }
 
@@ -223,7 +221,7 @@ async function getLastMessage(chatIdentifier) {
             chat = dialogs.find(dialog => dialog.title === chatIdentifier);
             
             if (!chat) {
-                console.error(`Could not find channel with title: ${chatIdentifier}`);
+                log(`Could not find channel with title: ${chatIdentifier}`);
                 return null;
             }
         }
@@ -233,7 +231,7 @@ async function getLastMessage(chatIdentifier) {
             limit: 2,
         });
 
-        console.log('messages', messages.map(msg => msg.message));
+        log('messages: ' + JSON.stringify(messages.map(msg => msg.message)));
 
         if (messages && messages.length > 0) {
             return messages.map(msg => msg.message);
@@ -241,7 +239,7 @@ async function getLastMessage(chatIdentifier) {
 
         return null;
     } catch (error) {
-        console.error('Error getting last message:', error);
+        log('Error getting last message: ' + error);
         return null;
     }
 }

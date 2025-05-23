@@ -1,5 +1,6 @@
 const bs58 = require("bs58");
 const { getLastMessage } = require("./telegramListener");
+const { log } = require("../utils/logger");
 // Remove reference to old bot
 // const { bot } = require("./telegramListener"); // For re-verification
 
@@ -35,7 +36,7 @@ function extractSolanaAddresses(messageText) {
     const dexscreenerRegex = /dexscreener\.com\/solana\/([1-9A-HJ-NP-Za-km-z]{32,44})/i;
     const dexscreenerMatch = messageText.match(dexscreenerRegex);
     if (dexscreenerMatch && dexscreenerMatch[1] && isValidSolanaAddress(dexscreenerMatch[1])) {
-        console.log('Found dexscreener address:', dexscreenerMatch[1]);
+        log('Found dexscreener address: ' + dexscreenerMatch[1]);
         return dexscreenerMatch[1];
     }
 
@@ -45,13 +46,13 @@ function extractSolanaAddresses(messageText) {
     if (base58Matches) {
         for (const addr of base58Matches) {
             if (isValidSolanaAddress(addr)) {
-                console.log('Found valid address:', addr);
+                log('Found valid address: ' + addr);
                 return addr;
             }
         }
     }
 
-    console.log('No valid address found');
+    log('No valid address found');
     return null;
 }
 
@@ -61,7 +62,7 @@ async function processMessage(msg) {
     const chatTitle = msg.chat.title;
 
     if (!messageText) {
-        console.log("Message has no text, skipping.");
+        log("Message has no text, skipping.");
         return null;
     }
 
@@ -71,31 +72,30 @@ async function processMessage(msg) {
         return null;
     }
 
-    console.log(`Found potential Solana address in message from ${chatTitle}: ${address}`);
+    log(`Found potential Solana address in message from ${chatTitle}: ${address}`);
 
     // 1. Wait 30 seconds
-    console.log(`Waiting 30 seconds before re-verifying message for address ${address}...`);
+    log(`Waiting 30 seconds before re-verifying message for address ${address}...`);
     await new Promise(resolve => setTimeout(resolve, 30000)); // 30 seconds
-    console.log('-----------------------------------------------------------------');
+    log('-----------------------------------------------------------------');
 
     // 2. Verify message still exists using getLastMessage
-    console.log(`Re-verifying message ${messageId} in chat ${chatTitle} for address ${address}...`);
-
+    log(`Re-verifying message ${messageId} in chat ${chatTitle} for address ${address}...`);
 
     const lastMessages = await getLastMessage(chatTitle);
     
     if (!lastMessages) {
-        console.log(`Could not retrieve last message from ${chatTitle}, skipping...`);
+        log(`Could not retrieve last message from ${chatTitle}, skipping...`);
         return null;
     }
 
     // run extractSolanaAddresses for each message
     const lastMessageAddress = lastMessages.map(msg => extractSolanaAddresses(msg));
-    console.log('lastMessageAddress', lastMessageAddress);
+    log('lastMessageAddress ' + JSON.stringify(lastMessageAddress));
 
     // check if the last message contains the same address
     if (!lastMessageAddress.includes(address)) {
-        console.log(`Address ${address} no longer exists in the last message of ${chatTitle}, skipping...`);
+        log(`Address ${address} no longer exists in the last message of ${chatTitle}, skipping...`);
         return null;
     }
 
