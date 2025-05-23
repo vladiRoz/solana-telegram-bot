@@ -123,8 +123,6 @@ function setupMessageHandler() {
             if (event.className === 'UpdateNewMessage' || event.className === 'UpdateNewChannelMessage') {
                 const message = event.message;
 
-                // console.log(`New message: ${message.message}`);
-                
                 if (!message) {
                     console.log('Skipping: No message in event');
                     return;
@@ -138,16 +136,18 @@ function setupMessageHandler() {
                 try {
                     // Get the chat entity from peerId
                     const chat = await client.getEntity(message.peerId);
+
+                    console.log('chat username', chat.username);
+                    console.log('chat title', chat.title);
+                    console.log('chat firstName', chat.firstName);
                     
                     if (!chat) {
                         console.log('Skipping: Could not retrieve chat entity');
                         return;
                     }
                     
-                    const chatTitle = chat.title || chat.username || chat.firstName || 'Unknown';
+                    const chatTitle = chat.firstName;
                     const messageText = message.message || '';
-                    
-                    // console.log(`Resolved message from chat: ${chatTitle}: ${messageText}`);
                     
                     // Check if this is a tracked channel
                     if (config.telegram_channels.includes(chatTitle)) {
@@ -230,22 +230,13 @@ async function getLastMessage(chatIdentifier) {
 
         // Get the last message from the chat
         const messages = await client.getMessages(chat, {
-            limit: 1, // Get only the last message
-            // reverse: true // Get the most recent message first
+            limit: 2,
         });
 
+        console.log('messages', messages.map(msg => msg.message));
+
         if (messages && messages.length > 0) {
-            const message = messages[0];
-            // Format the message to match the expected structure
-            return {
-                message_id: message.id,
-                chat: {
-                    id: chat.id.toString(),
-                    title: chat.title || chat.username || 'Unknown'
-                },
-                text: message.message || '',
-                date: message.date
-            };
+            return messages.map(msg => msg.message);
         }
 
         return null;

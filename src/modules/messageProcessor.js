@@ -31,8 +31,6 @@ function isValidSolanaAddress(address) {
 function extractSolanaAddresses(messageText) {
     if (!messageText || typeof messageText !== "string") return null;
 
-    console.log('Processing message:', messageText);
-
     // First try to find address in dexscreener URL as it's more reliable
     const dexscreenerRegex = /dexscreener\.com\/solana\/([1-9A-HJ-NP-Za-km-z]{32,44})/i;
     const dexscreenerMatch = messageText.match(dexscreenerRegex);
@@ -59,7 +57,6 @@ function extractSolanaAddresses(messageText) {
 
 async function processMessage(msg) {
     const messageText = msg.text;
-    const chatId = msg.chat.id;
     const messageId = msg.message_id;
     const chatTitle = msg.chat.title;
 
@@ -84,22 +81,20 @@ async function processMessage(msg) {
     // 2. Verify message still exists using getLastMessage
     console.log(`Re-verifying message ${messageId} in chat ${chatTitle} for address ${address}...`);
 
-    // run getLastMessage directly to cehck if this fiucntion works
 
-    const nameConverter = {
-        'TangerineTrip_bot': 'TangerineTrip',
-    }
-
-    const lastMessage = await getLastMessage('TangerineTrip');
+    const lastMessages = await getLastMessage(chatTitle);
     
-    if (!lastMessage) {
+    if (!lastMessages) {
         console.log(`Could not retrieve last message from ${chatTitle}, skipping...`);
         return null;
     }
 
-    // Check if the last message contains the same address
-    const lastMessageAddress = extractSolanaAddresses(lastMessage.text);
-    if (lastMessageAddress !== address) {
+    // run extractSolanaAddresses for each message
+    const lastMessageAddress = lastMessages.map(msg => extractSolanaAddresses(msg));
+    console.log('lastMessageAddress', lastMessageAddress);
+
+    // check if the last message contains the same address
+    if (!lastMessageAddress.includes(address)) {
         console.log(`Address ${address} no longer exists in the last message of ${chatTitle}, skipping...`);
         return null;
     }
