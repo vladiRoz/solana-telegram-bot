@@ -1,5 +1,6 @@
 require("dotenv").config();
-const { Connection, Keypair, SystemProgram, PublicKey, LAMPORTS_PER_SOL, Transaction, sendAndConfirmTransaction, ComputeBudgetProgram } = require("@solana/web3.js");
+const { Connection, Keypair, PublicKey, LAMPORTS_PER_SOL, VersionedTransaction, ComputeBudgetProgram } = require("@solana/web3.js");
+const fetch = require('cross-fetch');
 const bs58 = require("bs58");
 const fs = require("fs");
 const path = require("path");
@@ -12,6 +13,10 @@ const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 
 // Store purchased tokens with their purchase timestamps
 const purchasedTokens = new Map(); // Map<tokenAddress, purchaseTimestamp>
+
+// Constants
+const SOL_MINT = 'So11111111111111111111111111111111111111112'; // Wrapped SOL mint address
+const JUPITER_API_BASE = 'https://quote-api.jup.ag/v6';
 
 class SolanaTrader {
     constructor() {
@@ -58,46 +63,104 @@ class SolanaTrader {
         log(`Compute Unit Price (microLamports): ${compute_unit_price_micro_lamports}, Compute Unit Limit: ${compute_unit_limit}`);
 
         try {
-            // Placeholder for actual DEX interaction logic
-            log(`[SIMULATION] Checking wallet balance for ${this.wallet.publicKey.toBase58()}...`);
+            // Check wallet balance
             const balance = await this.connection.getBalance(this.wallet.publicKey);
-            log(`[SIMULATION] Wallet balance: ${balance / LAMPORTS_PER_SOL} SOL`);
+            log(`Wallet balance: ${balance / LAMPORTS_PER_SOL} SOL`);
 
             if (balance < amountToSpendLamports) {
-                log(`[SIMULATION] Insufficient SOL balance to make the purchase. Required: ${amountToSpendLamports}, Available: ${balance}`);
-                return { success: false, message: "Insufficient SOL balance (simulated check)" };
+                log(`Insufficient SOL balance to make the purchase. Required: ${amountToSpendLamports}, Available: ${balance}`);
+                return { success: false, message: "Insufficient SOL balance" };
             }
 
-            // Example: A simple (non-functional for token swap) transaction to demonstrate structure
-            const transaction = new Transaction();
+            // Get quote from Jupiter
+            const quoteUrl = `${JUPITER_API_BASE}/quote?inputMint=${SOL_MINT}&outputMint=${tokenAddress}&amount=${amountToSpendLamports}&slippageBps=${slippage_bps}`;
+            log(`Getting quote from: ${quoteUrl}`);
             
-            // Add compute budget instructions if specified
-            if (compute_unit_price_micro_lamports && compute_unit_price_micro_lamports > 0) {
-                transaction.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: compute_unit_price_micro_lamports }));
+            const quoteResponse = await fetch(quoteUrl);
+            const quoteData = await quoteResponse.json();
+
+            log(`Quote response: ${JSON.stringify(quoteData)}`);
+
+            if (quoteData.error || !quoteData.outAmount) {
+                log(`No routes found for swapping to ${tokenAddress}. Error: ${quoteData.error || 'Unknown error'}`);
+                return { success: false, message: `No swap routes found: ${quoteData.error || 'Unknown error'}` };
             }
-            if (compute_unit_limit && compute_unit_limit > 0) {
-                transaction.add(ComputeBudgetProgram.setComputeUnitLimit({ units: compute_unit_limit }));
+
+            log(`Best route found with price impact: ${quoteData.priceImpactPct}%`);
+            log(`Expected output amount: ${quoteData.outAmount}`);
+
+            // Get swap transaction
+            const { swapTransaction } = await (
+                await fetch(`${JUPITER_API_BASE}/swap`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        // quoteResponse from /quote api
+                        quoteResponse: quoteData,
+                        // user public key to be used for the swap
+                        userPublicKey: this.wallet.publicKey.toString(),
+                        // auto wrap and unwrap SOL. default is true
+                        wrapAndUnwrapSol: true
+                    })
+                })
+            ).json();
+            
+            if (!swapTransaction) {
+                log('Failed to get swap transaction');
+                return { success: false, message: "Failed to get swap transaction" };
             }
+
+            // Deserialize and sign the transaction
+            const swapTransactionBuf = Buffer.from(swapTransaction, 'base64');
+            const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
+            log('Transaction deserialized successfully');
+
+            // Sign the transaction
+            transaction.sign([this.wallet]);
+            log('Transaction signed successfully');
+
+            // Execute the transaction
+            log('Sending transaction...');
+            const rawTransaction = transaction.serialize();
+            const signature = await this.connection.sendRawTransaction(rawTransaction, {
+                skipPreflight: true,
+                maxRetries: 2
+            });
             
-            log(`[SIMULATION] Purchase of token ${tokenAddress} for ${purchase_amount_sol} SOL would be executed here.`);
-            log(`[SIMULATION] Parameters: Slippage ${slippage_bps}bps.`);
+            log(`Transaction sent with signature: ${signature}`);
             
-            // If simulation is considered a success:
+            // Wait for confirmation - simplified approach from Jupiter docs
+            const latestBlockHash = await this.connection.getLatestBlockhash();
+            await this.connection.confirmTransaction({
+                blockhash: latestBlockHash.blockhash,
+                lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+                signature: signature
+            });
+
+            log(`Swap successful! Transaction signature: ${signature}`);
+            log(`View transaction: https://solscan.io/tx/${signature}`);
+            
+            // Record the purchase
             const purchaseTime = new Date();
             purchasedTokens.set(tokenAddress, purchaseTime.toISOString());
-            log(`Token ${tokenAddress} marked as purchased (simulated) at ${purchaseTime.toISOString()}.`);
+            log(`Token ${tokenAddress} purchased at ${purchaseTime.toISOString()}`);
             
             return { 
                 success: true, 
-                message: `Simulated purchase of ${tokenAddress} successful.`,
-                purchaseTime: purchaseTime.toISOString()
+                message: `Successfully purchased ${tokenAddress}`,
+                purchaseTime: purchaseTime.toISOString(),
+                txid: signature,
+                outAmount: quoteData.outAmount
             };
 
         } catch (error) {
-            log(`[SIMULATION] Error during simulated purchase of ${tokenAddress}: ${error.message}`);
+            log(`Error during purchase of ${tokenAddress}: ${error.message || error.toString() || JSON.stringify(error)}`);
+            log(`Full error object: ${JSON.stringify(error, null, 2)}`);
             return { 
                 success: false, 
-                message: `Simulated purchase failed for ${tokenAddress}: ${error.message}` 
+                message: `Purchase failed for ${tokenAddress}: ${error.message || error.toString() || 'Unknown error'}` 
             };
         }
     }
