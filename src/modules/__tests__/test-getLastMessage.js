@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { startClient, getLastMessage } = require('./telegramListener');
+const { startClient, getLastMessage } = require('../telegramListener');
 
 async function testGetLastMessage() {
     try {
