@@ -76,7 +76,7 @@ async function processMessage(msg) {
 
     // 1. Wait 30 seconds
     log(`Waiting 30 seconds before re-verifying message for address ${address}...`);
-    await new Promise(resolve => setTimeout(resolve, 10000)); // 30 seconds
+    await new Promise(resolve => setTimeout(resolve, 20000)); // 30 seconds
     log('-----------------------------------------------------------------');
 
     // 2. Verify message still exists using getLastMessage

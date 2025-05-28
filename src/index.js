@@ -11,6 +11,10 @@ const { log } = require("./utils/logger");
 const configPath = path.resolve(__dirname, "../config/config.json"); // Adjusted path for src directory
 const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 
+// from config
+// "VIP Paid Channel 🔐",
+// "TangerineTrip"
+
 async function main() {
     log("Starting application...");
 

@@ -262,7 +262,7 @@ class SolanaTrader {
                     dynamicComputeUnitLimit: true,
                     prioritizationFeeLamports: {
                         priorityLevelWithMaxLamports: {
-                            maxLamports: 10000000,
+                            maxLamports: 2780000,  // ~$0.50 at current SOL prices
                             priorityLevel: "veryHigh"
                         }
                     }
