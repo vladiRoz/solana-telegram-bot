@@ -3,7 +3,7 @@ const SolanaTrader = require("../solanaTrader");
 const { log } = require("../../utils/logger");
 const { Connection, PublicKey } = require("@solana/web3.js");
 
-const tokenAddress = "CDA8J6HTYGCzhB6VYGAw6tvDYbpsy9FMt2D7w4UmtuVi";
+const tokenAddress = "676YgDtdAekpjYwNvLSLFPkBooVxBqJVpgxxoHJPpump";
 
 // Helper function to check actual token balance
 async function checkTokenBalance(connection, walletPublicKey, tokenMintAddress) {
@@ -14,7 +14,7 @@ async function checkTokenBalance(connection, walletPublicKey, tokenMintAddress) 
             { mint: new PublicKey(tokenMintAddress) }
         );
         
-        log(`Found ${tokenAccounts.value.length} token accounts for ${tokenMintAddress}`);
+        log(`tokenAccounts ${tokenAccounts}`);
         
         if (tokenAccounts.value.length === 0) {
             log("No token accounts found for this token");
@@ -49,14 +49,14 @@ async function testHandleSell() {
         const walletPublicKey = solanaTrader.wallet.publicKey;
         
         log(`Checking actual token balance for wallet: ${walletPublicKey.toString()}`);
-        // const actualBalance = await checkTokenBalance(connection, walletPublicKey, tokenAddress);
+        const actualBalance = await checkTokenBalance(connection, walletPublicKey, tokenAddress);
         
         const mockToken = {
             tokenAddress: tokenAddress,
             purchaseTime: new Date().toISOString(),
             messageTime: new Date().toISOString(),
             purchasePrice: 0.000001, // Mock price
-            tokenAmount: 1000, // Use actual balance if available
+            tokenAmount: actualBalance > 0 ? actualBalance : 1000, // Use actual balance if available
             solAmount: 0.001 // 0.001 SOL spent
         };
 

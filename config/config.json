@@ -1,8 +1,8 @@
 {
-  "telegram_channels": ["VIP Call" ],
+  "telegram_channels": ["VIP Call"],
   "solana_rpc_endpoint": "https://api.mainnet-beta.solana.com",
   "trading_settings": {
-    "slippage_bps": 50, 
+    "slippage_bps": 2000, 
     "compute_unit_price_micro_lamports": 50000,
     "compute_unit_limit": 200000,
     "purchase_amount_sol": 0.001
