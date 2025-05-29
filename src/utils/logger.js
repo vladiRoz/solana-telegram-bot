@@ -1,4 +1,14 @@
 const config = require('../../config/config.json');
+const fs = require('fs');
+const path = require('path');
+
+// Create logs directory if it doesn't exist
+const logsDir = path.join(__dirname, '../../logs');
+if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+}
+
+const logFilePath = path.join(logsDir, 'bot-activity.log');
 
 function formatTimestamp() {
     const now = new Date();
@@ -9,9 +19,29 @@ function formatTimestamp() {
     return `${hours}:${minutes}-${day}/${month}`;
 }
 
-function log(message) {
+function formatFullTimestamp() {
+    const now = new Date();
+    return now.toISOString();
+}
+
+function log(message, saveToFile = false) {
     const timestamp = config.logging?.show_timestamps ? `[${formatTimestamp()}] ` : '';
-    console.log(`${timestamp}${message}`);
+    const consoleMessage = `${timestamp}${message}`;
+    
+    // Always log to console
+    console.log(consoleMessage);
+    
+    // Save to file if requested
+    if (saveToFile) {
+        const fullTimestamp = formatFullTimestamp();
+        const fileMessage = `[${fullTimestamp}] ${message}\n`;
+        
+        try {
+            fs.appendFileSync(logFilePath, fileMessage, 'utf8');
+        } catch (error) {
+            console.error(`Failed to write to log file: ${error.message}`);
+        }
+    }
 }
 
 module.exports = {

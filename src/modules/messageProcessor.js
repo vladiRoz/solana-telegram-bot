@@ -62,7 +62,7 @@ async function processMessage(msg) {
     const chatTitle = msg.chat.title;
 
     if (!messageText) {
-        log("Message has no text, skipping.");
+        log("Message has no text, skipping.", true);
         return null;
     }
 
@@ -72,30 +72,30 @@ async function processMessage(msg) {
         return null;
     }
 
-    log(`Found potential Solana address in message from ${chatTitle}: ${address}`);
+    log(`Found potential Solana address in message from ${chatTitle}: ${address}`, true);
 
     // 1. Wait 30 seconds
-    log(`Waiting 30 seconds before re-verifying message for address ${address}...`);
+    log(`Waiting 30 seconds before re-verifying message for address ${address}...`, true);
     await new Promise(resolve => setTimeout(resolve, 20000)); // 30 seconds
-    log('-----------------------------------------------------------------');
+    log('-----------------------------------------------------------------', true);
 
     // 2. Verify message still exists using getLastMessage
-    log(`Re-verifying message ${messageId} in chat ${chatTitle} for address ${address}...`);
+    log(`Re-verifying message ${messageId} in chat ${chatTitle} for address ${address}...`, true);
 
     const lastMessages = await getLastMessage(chatTitle);
     
     if (!lastMessages) {
-        log(`Could not retrieve last message from ${chatTitle}, skipping...`);
+        log(`Could not retrieve last message from ${chatTitle}, skipping...`, true);
         return null;
     }
 
     // run extractSolanaAddresses for each message
     const lastMessageAddress = lastMessages.map(msg => extractSolanaAddresses(msg));
-    log('lastMessageAddress ' + JSON.stringify(lastMessageAddress));
+    log('lastMessageAddress ' + JSON.stringify(lastMessageAddress), true);
 
     // check if the last message contains the same address
     if (!lastMessageAddress.includes(address)) {
-        log(`Address ${address} no longer exists in the last message of ${chatTitle}, skipping...`);
+        log(`Address ${address} no longer exists in the last message of ${chatTitle}, skipping...`, true);
         return null;
     }
 
