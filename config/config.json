@@ -1,5 +1,5 @@
 {
-  "telegram_channels": ["VIP Call"],
+  "telegram_channels": ["VIP Call", "TangerineTrip"],
   "solana_rpc_endpoint": "https://api.mainnet-beta.solana.com",
   "trading_settings": {
     "slippage_bps": 2000, 

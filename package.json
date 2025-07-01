@@ -5,7 +5,7 @@
   "scripts": {
     "test": "jest",
     "start": "node src/index.js",
-    "test-telegram": "node src/test-telegram.js"
+    "test-telegram": "node src/modules/test-telegram.js"
   },
   "keywords": [],
   "author": "",
