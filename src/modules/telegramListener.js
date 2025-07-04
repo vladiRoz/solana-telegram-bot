@@ -135,6 +135,8 @@ function setupMessageHandler() {
                     // Get the chat entity from peerId
                     const chat = await client.getEntity(message.peerId);
 
+                    log('chat msg recevied: ' + JSON.stringify(chat));
+
                     if (!chat) {
                         log('Skipping: Could not retrieve chat entity');
                         return;
