@@ -135,14 +135,12 @@ function setupMessageHandler() {
                     // Get the chat entity from peerId
                     const chat = await client.getEntity(message.peerId);
 
-                    log('chat msg recevied: ' + JSON.stringify(chat));
-
                     if (!chat) {
                         log('Skipping: Could not retrieve chat entity');
                         return;
                     }
                     
-                    const chatTitle = chat.firstName;
+                    const chatTitle = chat.title ||chat.firstName;
                     const messageText = message.message || '';
                     
                     // Check if this is a tracked channel
