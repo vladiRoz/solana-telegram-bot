@@ -91,6 +91,14 @@ class SolanaTrader {
 
             log(`Best route found with price impact: ${quoteData.priceImpactPct}%`, true);
             log(`Expected output amount: ${quoteData.outAmount}`, true);
+            
+            // Calculate price per token from quote
+            const pricePerTokenUSD = parseFloat(quoteData.swapUsdValue) / parseFloat(quoteData.outAmount);
+            const inAmountSOL = parseFloat(quoteData.inAmount) / 1e9; // Convert lamports to SOL
+            const pricePerTokenSOL = inAmountSOL / parseFloat(quoteData.outAmount);
+            
+            log(`Quote price per token: $${pricePerTokenUSD.toExponential(4)} USD`, true);
+            log(`Quote price per token: ${pricePerTokenSOL.toExponential(4)} SOL`, true);
 
             // Get swap transaction with priority fee settings
             const swapResponse = await fetch(`${JUPITER_API_BASE}/swap`, {
@@ -168,8 +176,8 @@ class SolanaTrader {
             log(`Swap successful! Transaction signature: ${signature}`, true);
             log(`View transaction: https://solscan.io/tx/${signature}`, true);
             
-            // Get initial price for tracking
-            const initialPrice = await this.getTokenPrice(tokenAddress);
+            // Get initial market data for tracking
+            const marketData = await this.getTokenMarketData(tokenAddress);
             
             // Check actual received amount vs expected
             const actualBalance = await this.getTokenBalance(tokenAddress);
@@ -184,20 +192,29 @@ class SolanaTrader {
                 tokenAddress,
                 purchaseTime: purchaseTime.toISOString(),
                 messageTime: messageTime.toISOString(),
-                purchasePrice: initialPrice,
+                purchasePrice: marketData.price,
                 tokenAmount: actualBalance, // Use actual balance instead of quote amount
-                solAmount: purchase_amount_sol
+                solAmount: purchase_amount_sol,
+                marketCapAtPurchase: marketData.marketCap,
+                liquidityAtPurchase: marketData.liquidity,
+                volume24hAtPurchase: marketData.volume24h,
+                supplyAtPurchase: marketData.supply
             };
             
             // Initialize price history with purchase price
             priceHistory = [{
                 timestamp: purchaseTime.toISOString(),
-                price: initialPrice
+                price: marketData.price
             }];
             
             log(`Token ${tokenAddress} purchased at ${purchaseTime.toISOString()}`, true);
             log(`Message received at: ${messageTime.toISOString()}`, true);
-            log(`Initial price: ${initialPrice}`, true);
+            log(`Market data at purchase:`, true);
+            log(`- Price: ${marketData.price}`, true);
+            log(`- Market Cap: $${marketData.marketCap.toLocaleString()}`, true);
+            log(`- Liquidity: $${marketData.liquidity.toLocaleString()}`, true);
+            log(`- 24h Volume: $${marketData.volume24h.toLocaleString()}`, true);
+            log(`- Supply: ${marketData.supply.toLocaleString()}`, true);
             
             return { 
                 success: true, 
@@ -230,8 +247,8 @@ class SolanaTrader {
                 if (verification.success) {
                     log(`Transaction actually succeeded despite timeout! Treating as successful purchase.`, true);
                     
-                    // Get initial price for tracking
-                    const initialPrice = await this.getTokenPrice(tokenAddress);
+                    // Get initial market data for tracking
+                    const marketData = await this.getTokenMarketData(tokenAddress);
                     
                     // Record the purchase
                     const purchaseTime = new Date();
@@ -241,19 +258,29 @@ class SolanaTrader {
                         tokenAddress,
                         purchaseTime: purchaseTime.toISOString(),
                         messageTime: messageTime.toISOString(),
-                        purchasePrice: initialPrice,
+                        purchasePrice: marketData.price,
                         tokenAmount: verification.actualBalance,
-                        solAmount: purchase_amount_sol
+                        solAmount: purchase_amount_sol,
+                        marketCapAtPurchase: marketData.marketCap,
+                        liquidityAtPurchase: marketData.liquidity,
+                        volume24hAtPurchase: marketData.volume24h,
+                        supplyAtPurchase: marketData.supply
                     };
                     
                     // Initialize price history with purchase price
                     priceHistory = [{
                         timestamp: purchaseTime.toISOString(),
-                        price: initialPrice
+                        price: marketData.price
                     }];
                     
                     log(`Token ${tokenAddress} purchased at ${purchaseTime.toISOString()} (verified after timeout)`, true);
                     log(`View transaction: https://solscan.io/tx/${error.signature}`, true);
+                    log(`Market data at purchase:`, true);
+                    log(`- Price: ${marketData.price}`, true);
+                    log(`- Market Cap: $${marketData.marketCap.toLocaleString()}`, true);
+                    log(`- Liquidity: $${marketData.liquidity.toLocaleString()}`, true);
+                    log(`- 24h Volume: $${marketData.volume24h.toLocaleString()}`, true);
+                    log(`- Supply: ${marketData.supply.toLocaleString()}`, true);
                     
                     return { 
                         success: true, 
@@ -452,6 +479,40 @@ class SolanaTrader {
         }
     }
 
+    async getTokenMarketData(tokenAddress) {
+        try {
+            const response = await fetch(`${BIRDEYE_API_BASE}/defi/token_overview?address=${tokenAddress}`);
+            const data = await response.json();
+            
+            if (data.success && data.data) {
+                return {
+                    price: data.data.price || 0,
+                    marketCap: data.data.mc || 0,
+                    liquidity: data.data.liquidity || 0,
+                    volume24h: data.data.v24hUSD || 0,
+                    supply: data.data.supply || 0
+                };
+            }
+            
+            return {
+                price: 0,
+                marketCap: 0,
+                liquidity: 0,
+                volume24h: 0,
+                supply: 0
+            };
+        } catch (error) {
+            log(`Error getting market data for ${tokenAddress}: ${error.message}`);
+            return {
+                price: 0,
+                marketCap: 0,
+                liquidity: 0,
+                volume24h: 0,
+                supply: 0
+            };
+        }
+    }
+
     getPriceAtTime(minutesAgo) {
         if (priceHistory.length === 0) return 0;
         
@@ -533,6 +594,8 @@ class SolanaTrader {
                     if (priceRatio >= 1.5) {
                         log(`Quick sell triggered for ${purchasedToken.tokenAddress} - 50%+ gain detected (${((priceRatio - 1) * 100).toFixed(2)}%)`, true);
                         await this.handleSell(purchasedToken.tokenAddress, "Quick sell - 50% gain");
+                        // making sure the purchasedToken is null otherwise it wont be able to purchase any other tokens
+                        purchasedToken = null;
                         return;
                     }
 
@@ -542,6 +605,8 @@ class SolanaTrader {
                     if (sellDecision.sellAt !== "hold") {
                         log(`Strategic sell triggered for ${purchasedToken.tokenAddress} - ${sellDecision.sellAt} (${((sellDecision.returnRate - 1) * 100).toFixed(2)}% return)`, true);
                         await this.handleSell(purchasedToken.tokenAddress, `Strategic sell - ${sellDecision.sellAt}`);
+                        purchasedToken = null;
+                        return;
                     }
                 }
             } catch (error) {
@@ -588,6 +653,11 @@ class SolanaTrader {
     // Method to get the full purchased token object
     getPurchasedTokenObject() {
         return purchasedToken;
+    }
+
+    // Method to get current market data for any token
+    async getCurrentMarketData(tokenAddress) {
+        return await this.getTokenMarketData(tokenAddress);
     }
 
     async verifyTransactionSuccess(signature, tokenAddress, expectedMinAmount = 0) {
