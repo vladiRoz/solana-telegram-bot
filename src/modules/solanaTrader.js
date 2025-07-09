@@ -176,9 +176,9 @@ class SolanaTrader {
             log(`Swap successful! Transaction signature: ${signature}`, true);
             log(`View transaction: https://solscan.io/tx/${signature}`, true);
             
-            // Get initial market data for tracking
-            const marketData = await this.getTokenMarketData(tokenAddress);
-            
+            // Get initial price for tracking
+            const initialPrice = await this.getTokenPrice(tokenAddress);
+
             // Check actual received amount vs expected
             const actualBalance = await this.getTokenBalance(tokenAddress);
             log(`Expected token amount: ${quoteData.outAmount}`, true);
@@ -192,29 +192,22 @@ class SolanaTrader {
                 tokenAddress,
                 purchaseTime: purchaseTime.toISOString(),
                 messageTime: messageTime.toISOString(),
-                purchasePrice: marketData.price,
+                purchasePrice: initialPrice,
                 tokenAmount: actualBalance, // Use actual balance instead of quote amount
                 solAmount: purchase_amount_sol,
-                marketCapAtPurchase: marketData.marketCap,
-                liquidityAtPurchase: marketData.liquidity,
-                volume24hAtPurchase: marketData.volume24h,
-                supplyAtPurchase: marketData.supply
+                pricePerTokenUSD: pricePerTokenUSD,
+                pricePerTokenSOL: pricePerTokenSOL
             };
             
             // Initialize price history with purchase price
             priceHistory = [{
                 timestamp: purchaseTime.toISOString(),
-                price: marketData.price
+                price: initialPrice
             }];
             
             log(`Token ${tokenAddress} purchased at ${purchaseTime.toISOString()}`, true);
             log(`Message received at: ${messageTime.toISOString()}`, true);
-            log(`Market data at purchase:`, true);
-            log(`- Price: ${marketData.price}`, true);
-            log(`- Market Cap: $${marketData.marketCap.toLocaleString()}`, true);
-            log(`- Liquidity: $${marketData.liquidity.toLocaleString()}`, true);
-            log(`- 24h Volume: $${marketData.volume24h.toLocaleString()}`, true);
-            log(`- Supply: ${marketData.supply.toLocaleString()}`, true);
+            log(`Initial price: ${initialPrice}`, true);
             
             return { 
                 success: true, 
@@ -247,8 +240,8 @@ class SolanaTrader {
                 if (verification.success) {
                     log(`Transaction actually succeeded despite timeout! Treating as successful purchase.`, true);
                     
-                    // Get initial market data for tracking
-                    const marketData = await this.getTokenMarketData(tokenAddress);
+                    // Get initial price for tracking
+                    const initialPrice = await this.getTokenPrice(tokenAddress);
                     
                     // Record the purchase
                     const purchaseTime = new Date();
@@ -258,29 +251,19 @@ class SolanaTrader {
                         tokenAddress,
                         purchaseTime: purchaseTime.toISOString(),
                         messageTime: messageTime.toISOString(),
-                        purchasePrice: marketData.price,
+                        purchasePrice: initialPrice,
                         tokenAmount: verification.actualBalance,
-                        solAmount: purchase_amount_sol,
-                        marketCapAtPurchase: marketData.marketCap,
-                        liquidityAtPurchase: marketData.liquidity,
-                        volume24hAtPurchase: marketData.volume24h,
-                        supplyAtPurchase: marketData.supply
+                        solAmount: purchase_amount_sol
                     };
                     
                     // Initialize price history with purchase price
                     priceHistory = [{
                         timestamp: purchaseTime.toISOString(),
-                        price: marketData.price
+                        price: initialPrice
                     }];
                     
                     log(`Token ${tokenAddress} purchased at ${purchaseTime.toISOString()} (verified after timeout)`, true);
                     log(`View transaction: https://solscan.io/tx/${error.signature}`, true);
-                    log(`Market data at purchase:`, true);
-                    log(`- Price: ${marketData.price}`, true);
-                    log(`- Market Cap: $${marketData.marketCap.toLocaleString()}`, true);
-                    log(`- Liquidity: $${marketData.liquidity.toLocaleString()}`, true);
-                    log(`- 24h Volume: $${marketData.volume24h.toLocaleString()}`, true);
-                    log(`- Supply: ${marketData.supply.toLocaleString()}`, true);
                     
                     return { 
                         success: true, 
@@ -479,40 +462,6 @@ class SolanaTrader {
         }
     }
 
-    async getTokenMarketData(tokenAddress) {
-        try {
-            const response = await fetch(`${BIRDEYE_API_BASE}/defi/token_overview?address=${tokenAddress}`);
-            const data = await response.json();
-            
-            if (data.success && data.data) {
-                return {
-                    price: data.data.price || 0,
-                    marketCap: data.data.mc || 0,
-                    liquidity: data.data.liquidity || 0,
-                    volume24h: data.data.v24hUSD || 0,
-                    supply: data.data.supply || 0
-                };
-            }
-            
-            return {
-                price: 0,
-                marketCap: 0,
-                liquidity: 0,
-                volume24h: 0,
-                supply: 0
-            };
-        } catch (error) {
-            log(`Error getting market data for ${tokenAddress}: ${error.message}`);
-            return {
-                price: 0,
-                marketCap: 0,
-                liquidity: 0,
-                volume24h: 0,
-                supply: 0
-            };
-        }
-    }
-
     getPriceAtTime(minutesAgo) {
         if (priceHistory.length === 0) return 0;
         
@@ -653,11 +602,6 @@ class SolanaTrader {
     // Method to get the full purchased token object
     getPurchasedTokenObject() {
         return purchasedToken;
-    }
-
-    // Method to get current market data for any token
-    async getCurrentMarketData(tokenAddress) {
-        return await this.getTokenMarketData(tokenAddress);
     }
 
     async verifyTransactionSuccess(signature, tokenAddress, expectedMinAmount = 0) {
