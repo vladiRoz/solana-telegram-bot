@@ -92,14 +92,6 @@ class SolanaTrader {
             log(`Best route found with price impact: ${quoteData.priceImpactPct}%`, true);
             log(`Expected output amount: ${quoteData.outAmount}`, true);
             
-            // Calculate price per token from quote
-            const pricePerTokenUSD = parseFloat(quoteData.swapUsdValue) / parseFloat(quoteData.outAmount);
-            const inAmountSOL = parseFloat(quoteData.inAmount) / 1e9; // Convert lamports to SOL
-            const pricePerTokenSOL = inAmountSOL / parseFloat(quoteData.outAmount);
-            
-            log(`Quote price per token: $${pricePerTokenUSD.toExponential(4)} USD`, true);
-            log(`Quote price per token: ${pricePerTokenSOL.toExponential(4)} SOL`, true);
-
             // Get swap transaction with priority fee settings
             const swapResponse = await fetch(`${JUPITER_API_BASE}/swap`, {
                 method: 'POST',
@@ -195,8 +187,7 @@ class SolanaTrader {
                 purchasePrice: initialPrice,
                 tokenAmount: actualBalance, // Use actual balance instead of quote amount
                 solAmount: purchase_amount_sol,
-                pricePerTokenUSD: pricePerTokenUSD,
-                pricePerTokenSOL: pricePerTokenSOL
+                pricePerTokenUSD: initialPrice
             };
             
             // Initialize price history with purchase price
@@ -207,7 +198,7 @@ class SolanaTrader {
             
             log(`Token ${tokenAddress} purchased at ${purchaseTime.toISOString()}`, true);
             log(`Message received at: ${messageTime.toISOString()}`, true);
-            log(`Initial price: ${initialPrice}`, true);
+            log(`Purchase price: $${initialPricez} USD per token`, true);
             
             return { 
                 success: true, 
@@ -453,9 +444,32 @@ class SolanaTrader {
 
     async getTokenPrice(tokenAddress) {
         try {
-            const response = await fetch(`${BIRDEYE_API_BASE}/public/price?address=${tokenAddress}`);
+            // Get token decimals first
+            const mintInfo = await this.connection.getParsedAccountInfo(new PublicKey(tokenAddress));
+            let decimals = 9; // Default
+            if (mintInfo.value && mintInfo.value.data.parsed) {
+                decimals = mintInfo.value.data.parsed.info.decimals;
+            }
+            
+            // Use same small amount as actual trades (0.001 SOL) to get realistic pricing
+            const smallAmountLamports = 1000000; // 0.001 SOL = 1,000,000 lamports
+            const quoteUrl = `${JUPITER_API_BASE}/quote?inputMint=${SOL_MINT}&outputMint=${tokenAddress}&amount=${smallAmountLamports}&slippageBps=300`;
+            
+            const response = await fetch(quoteUrl);
             const data = await response.json();
-            return data.data?.value || 0;
+            
+            if (data.outAmount && data.swapUsdValue) {
+                // Convert raw token amount to actual tokens considering decimals
+                const tokensReceivedActual = parseFloat(data.outAmount) / Math.pow(10, decimals);
+                
+                // Calculate price per token: USD value / actual tokens received
+                const pricePerToken = parseFloat(data.swapUsdValue) / tokensReceivedActual;
+                log(`Price calculated from Jupiter quote (0.001 SOL, ${decimals} decimals): $${pricePerToken.toFixed(8)} USD per token`);
+                return pricePerToken.toFixed(10);
+            }
+            
+            log(`No price data found for ${tokenAddress} from Jupiter`);
+            return 0;
         } catch (error) {
             log(`Error getting price for ${tokenAddress}: ${error.message}`);
             return 0;
