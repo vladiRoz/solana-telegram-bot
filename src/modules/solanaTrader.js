@@ -198,7 +198,7 @@ class SolanaTrader {
             
             log(`Token ${tokenAddress} purchased at ${purchaseTime.toISOString()}`, true);
             log(`Message received at: ${messageTime.toISOString()}`, true);
-            log(`Purchase price: $${initialPricez} USD per token`, true);
+            log(`Purchase price: $${initialPrice} USD per token`, true);
             
             return { 
                 success: true, 
@@ -537,6 +537,8 @@ class SolanaTrader {
             try {
                 if (purchasedToken) {
                     const currentPrice = await this.getTokenPrice(purchasedToken.tokenAddress);
+
+                    log(`startTokenMonitoring - Current price: $${currentPrice} USD per token`, true);
                     
                     if (currentPrice === 0) return;
 
