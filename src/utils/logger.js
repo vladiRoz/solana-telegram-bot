@@ -21,7 +21,15 @@ function formatTimestamp() {
 
 function formatFullTimestamp() {
     const now = new Date();
-    return now.toISOString();
+    const sydneyTime = now.toLocaleString('sv-SE', {
+        timeZone: 'Australia/Sydney',
+        hour12: false,
+    });
+
+    const [date, time] = sydneyTime.split(' ');
+    const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+
+    return `${date}T${time}.${milliseconds}`;
 }
 
 function log(message, saveToFile = false) {
