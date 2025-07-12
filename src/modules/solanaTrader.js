@@ -477,10 +477,21 @@ class SolanaTrader {
     }
 
     getPriceAtTime(minutesAgo) {
-        if (priceHistory.length === 0) return 0;
-        
-        const targetTime = new Date(Date.now() - minutesAgo * 60 * 1000);
-        
+        if (priceHistory.length === 0) {
+            return 0;
+        }
+
+        const now = Date.now();
+        const targetTime = new Date(now - minutesAgo * 60 * 1000);
+        const oldestHistoryTime = new Date(priceHistory[0].timestamp);
+
+        // Check if we have enough history to even look back this far.
+        // If the oldest data point is more recent than our target time, we don't have data for that period.
+        if (oldestHistoryTime > targetTime) {
+            log(`Not enough price history to get price for ${minutesAgo}m ago. Oldest data is from ${oldestHistoryTime.toISOString()}`);
+            return 0;
+        }
+
         // Find the closest price entry to the target time
         let closest = priceHistory[0];
         let minDiff = Math.abs(new Date(closest.timestamp) - targetTime);
