@@ -576,14 +576,14 @@ class SolanaTrader {
                     }
 
                     // Strategic sell check using tracked price history
-                    const sellDecision = this.decideSell(currentPrice, purchasedToken.solAmount);
+                    // const sellDecision = this.decideSell(currentPrice, purchasedToken.solAmount);
                     
-                    if (sellDecision.sellAt !== "hold") {
-                        log(`Strategic sell triggered for ${purchasedToken.tokenAddress} - ${sellDecision.sellAt} (${((sellDecision.returnRate - 1) * 100).toFixed(2)}% return)`, true);
-                        await this.handleSell(purchasedToken.tokenAddress, `Strategic sell - ${sellDecision.sellAt}`);
-                        purchasedToken = null;
-                        return;
-                    }
+                    // if (sellDecision.sellAt !== "hold") {
+                    //     log(`Strategic sell triggered for ${purchasedToken.tokenAddress} - ${sellDecision.sellAt} (${((sellDecision.returnRate - 1) * 100).toFixed(2)}% return)`, true);
+                    //     await this.handleSell(purchasedToken.tokenAddress, `Strategic sell - ${sellDecision.sellAt}`);
+                    //     purchasedToken = null;
+                    //     return;
+                    // }
                 }
             } catch (error) {
                 log(`Error in token monitoring: ${error.message}`, true);
