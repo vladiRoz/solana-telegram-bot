@@ -48,6 +48,14 @@ class SolanaTrader {
     async handlePurchase(tokenAddress, msg = null) {
         log(`Attempting to handle purchase for token: ${tokenAddress}`, true);
 
+        if (config.excluded_tokens && config.excluded_tokens.includes(tokenAddress)) {
+            log(`Token ${tokenAddress} is in the exclusion list. Skipping purchase.`, true);
+            return {
+                success: false,
+                message: `Token ${tokenAddress} is excluded.`
+            };
+        }
+
         if (purchasedToken) {
             log(`Cannot purchase ${tokenAddress}. Already holding token: ${purchasedToken.tokenAddress} since ${purchasedToken.purchaseTime}`, true);
             return { 

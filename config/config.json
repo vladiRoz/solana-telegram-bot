@@ -9,5 +9,8 @@
   },
   "logging": {
     "show_timestamps": true
-  }
+  },
+  "excluded_tokens": [
+    "Ey2zpSAJ5gVLfYDD5WjccbksJD3E9jPFMPaJ8wxvpump"
+  ]
 }
