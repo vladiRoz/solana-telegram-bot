@@ -15,6 +15,7 @@ const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 let purchasedToken = null; // {tokenAddress, purchaseTime, messageTime, purchasePrice, tokenAmount, solAmount}
 let priceHistory = []; // Array of {timestamp, price} objects for the current token
 let sold_tokens = []; // In-memory list of sold tokens for this session
+let lastLogTime = 0;
 
 // Constants
 const SOL_MINT = 'So11111111111111111111111111111111111111112'; // Wrapped SOL mint address
@@ -572,12 +573,16 @@ class SolanaTrader {
                 if (purchasedToken) {
                     const currentPrice = await this.getTokenPrice(purchasedToken.tokenAddress);
 
-                    log(`startTokenMonitoring - Current price: $${currentPrice} USD per token`, true);
+                    const currentTime = Date.now();
+                    if (currentTime - (lastLogTime || 0) > 120000) { // Log every 2 minutes
+                        log(`startTokenMonitoring - Current price: $${currentPrice} USD per token`, true);
+                        lastLogTime = currentTime;
+                    }
                     
                     if (currentPrice === 0) return;
 
                     // Add current price to history
-                    const now = new Date().toISOString();
+                    const now = new Date(currentTime).toISOString();
                     priceHistory.push({
                         timestamp: now,
                         price: currentPrice
