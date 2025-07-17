@@ -14,6 +14,7 @@ const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 // Store purchased token details (only one token at a time)
 let purchasedToken = null; // {tokenAddress, purchaseTime, messageTime, purchasePrice, tokenAmount, solAmount}
 let priceHistory = []; // Array of {timestamp, price} objects for the current token
+let sold_tokens = []; // In-memory list of sold tokens for this session
 
 // Constants
 const SOL_MINT = 'So11111111111111111111111111111111111111112'; // Wrapped SOL mint address
@@ -53,6 +54,14 @@ class SolanaTrader {
             return {
                 success: false,
                 message: `Token ${tokenAddress} is excluded.`
+            };
+        }
+
+        if (sold_tokens.includes(tokenAddress)) {
+            log(`Token ${tokenAddress} has been sold before in this session. Skipping purchase.`, true);
+            return {
+                success: false,
+                message: `Token ${tokenAddress} has been sold before in this session.`
             };
         }
 
@@ -427,6 +436,12 @@ class SolanaTrader {
             log(`SOL received: ${solReceived}, Profit: ${profit} SOL (${profitPercent.toFixed(2)}%)`, true);
             log(`View transaction: https://solscan.io/tx/${signature}`, true);
             
+            // Add to in-memory sold tokens list to prevent re-buying during this session
+            if (!sold_tokens.includes(tokenAddress)) {
+                sold_tokens.push(tokenAddress);
+                log(`Added ${tokenAddress} to the session's sold tokens list. It will not be purchased again.`, true);
+            }
+            
             // Remove from tracking only if transaction was successful
             purchasedToken = null;
             priceHistory = []; // Clear price history
@@ -574,10 +589,11 @@ class SolanaTrader {
                     }
 
                     // Quick sell check: 50% gain
+                    const takeProfitRatio = 1 + (config.trading_settings.take_profit_percentage / 100);
                     const priceRatio = currentPrice / purchasedToken.purchasePrice;
-                    if (priceRatio >= 1.5) {
-                        log(`Quick sell triggered for ${purchasedToken.tokenAddress} - 50%+ gain detected (${((priceRatio - 1) * 100).toFixed(2)}%)`, true);
-                        await this.handleSell(purchasedToken.tokenAddress, "Quick sell - 50% gain");
+                    if (priceRatio >= takeProfitRatio) {
+                        log(`Take profit triggered for ${purchasedToken.tokenAddress} - ${config.trading_settings.take_profit_percentage}%+ gain detected (${((priceRatio - 1) * 100).toFixed(2)}%)`, true);
+                        await this.handleSell(purchasedToken.tokenAddress, `Take profit - ${config.trading_settings.take_profit_percentage}% gain`);
                         // making sure the purchasedToken is null otherwise it wont be able to purchase any other tokens
                         purchasedToken = null;
                         return;
