@@ -83,212 +83,234 @@ class SolanaTrader {
         log(`Slippage: ${slippage_bps} bps, Amount (Lamports): ${amountToSpendLamports}`, true);
         log(`Compute Unit Price (microLamports): ${compute_unit_price_micro_lamports}, Compute Unit Limit: ${compute_unit_limit}`, true);
 
-        try {
-            // Check wallet balance
-            const balance = await this.connection.getBalance(this.wallet.publicKey);
-            log(`Wallet balance: ${balance / LAMPORTS_PER_SOL} SOL`, true);
+        const maxRetries = 2;
+        for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+            log(`Purchase attempt ${attempt}/${maxRetries + 1} for token: ${tokenAddress}`, true);
+            try {
+                // Check wallet balance
+                const balance = await this.connection.getBalance(this.wallet.publicKey);
+                log(`Wallet balance: ${balance / LAMPORTS_PER_SOL} SOL`, true);
 
-            if (balance < amountToSpendLamports) {
-                log(`Insufficient SOL balance to make the purchase. Required: ${amountToSpendLamports}, Available: ${balance}`, true);
-                return { success: false, message: "Insufficient SOL balance" };
-            }
+                if (balance < amountToSpendLamports) {
+                    log(`Insufficient SOL balance to make the purchase. Required: ${amountToSpendLamports}, Available: ${balance}`, true);
+                    return { success: false, message: "Insufficient SOL balance" };
+                }
 
-            // Get quote from Jupiter
-            const quoteUrl = `${JUPITER_API_BASE}/quote?inputMint=${SOL_MINT}&outputMint=${tokenAddress}&amount=${amountToSpendLamports}&slippageBps=${slippage_bps}`;
-            log(`Getting quote from: ${quoteUrl}`, true);
-            
-            const quoteResponse = await fetch(quoteUrl);
-            const quoteData = await quoteResponse.json();
+                // Get quote from Jupiter
+                const quoteUrl = `${JUPITER_API_BASE}/quote?inputMint=${SOL_MINT}&outputMint=${tokenAddress}&amount=${amountToSpendLamports}&slippageBps=${slippage_bps}`;
+                log(`Getting quote from: ${quoteUrl}`, true);
+                
+                const quoteResponse = await fetch(quoteUrl);
+                const quoteData = await quoteResponse.json();
 
-            log(`Quote response: ${JSON.stringify(quoteData)}`, true);
+                log(`Quote response: ${JSON.stringify(quoteData)}`, true);
 
-            if (quoteData.error || !quoteData.outAmount) {
-                log(`No routes found for swapping to ${tokenAddress}. Error: ${quoteData.error || 'Unknown error'}`, true);
-                return { success: false, message: `No swap routes found: ${quoteData.error || 'Unknown error'}` };
-            }
+                if (quoteData.error || !quoteData.outAmount) {
+                    log(`No routes found for swapping to ${tokenAddress}. Error: ${quoteData.error || 'Unknown error'}`, true);
+                    // This is a permanent error for this attempt, so we can continue to the next retry
+                    if (attempt <= maxRetries) {
+                        await new Promise(resolve => setTimeout(resolve, 2000)); // wait before retrying
+                        continue;
+                    } else {
+                         return { success: false, message: `No swap routes found: ${quoteData.error || 'Unknown error'}` };
+                    }
+                }
 
-            log(`Best route found with price impact: ${quoteData.priceImpactPct}%`, true);
-            log(`Expected output amount: ${quoteData.outAmount}`, true);
-            
-            // Get swap transaction with priority fee settings
-            const swapResponse = await fetch(`${JUPITER_API_BASE}/swap`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    // quoteResponse from /quote api
-                    quoteResponse: quoteData,
-                    // user public key to be used for the swap
-                    userPublicKey: this.wallet.publicKey.toString(),
-                    // auto wrap and unwrap SOL. default is true
-                    wrapAndUnwrapSol: true,
-                    // Add dynamic compute limit and priority fee for better success rate
-                    // dynamicComputeUnitLimit: true,
-                    // prioritizationFeeLamports: {
-                    //     priorityLevelWithMaxLamports: {
-                    //         maxLamports: 10000000,
-                    //         priorityLevel: "veryHigh"
-                    //     }
-                    // }
-                })
-            });
-            
-            const { swapTransaction } = await swapResponse.json();
-            
-            if (!swapTransaction) {
-                log('Failed to get swap transaction', true);
-                return { success: false, message: "Failed to get swap transaction" };
-            }
+                log(`Best route found with price impact: ${quoteData.priceImpactPct}%`, true);
+                log(`Expected output amount: ${quoteData.outAmount}`, true);
+                
+                // Get swap transaction with priority fee settings
+                const swapResponse = await fetch(`${JUPITER_API_BASE}/swap`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        // quoteResponse from /quote api
+                        quoteResponse: quoteData,
+                        // user public key to be used for the swap
+                        userPublicKey: this.wallet.publicKey.toString(),
+                        // auto wrap and unwrap SOL. default is true
+                        wrapAndUnwrapSol: true,
+                    })
+                });
+                
+                const { swapTransaction } = await swapResponse.json();
+                
+                if (!swapTransaction) {
+                    log('Failed to get swap transaction', true);
+                     if (attempt <= maxRetries) {
+                        await new Promise(resolve => setTimeout(resolve, 2000)); // wait before retrying
+                        continue;
+                    } else {
+                        return { success: false, message: "Failed to get swap transaction" };
+                    }
+                }
 
-            // Deserialize the transaction
-            const swapTransactionBuf = Buffer.from(swapTransaction, 'base64');
-            const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
-            log('Transaction deserialized successfully', true);
+                // Deserialize the transaction
+                const swapTransactionBuf = Buffer.from(swapTransaction, 'base64');
+                const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
+                log('Transaction deserialized successfully', true);
 
-            // Sign the transaction - using the correct method from Jupiter docs
-            transaction.sign([this.wallet]);
-            log('Transaction signed successfully', true);
+                // Sign the transaction - using the correct method from Jupiter docs
+                transaction.sign([this.wallet]);
+                log('Transaction signed successfully', true);
 
-            // Get the latest block hash before sending
-            const latestBlockHash = await this.connection.getLatestBlockhash();
+                // Get the latest block hash before sending
+                const latestBlockHash = await this.connection.getLatestBlockhash();
 
-            // Execute the transaction
-            log('Sending transaction...', true);
-            const rawTransaction = transaction.serialize();
-            const signature = await this.connection.sendRawTransaction(rawTransaction, {
-                skipPreflight: true,
-                maxRetries: 2
-            });
-            
-            log(`Transaction sent with signature: ${signature}`, true);
-            
-            // Wait for confirmation using the proper method from Jupiter docs
-            const confirmation = await this.connection.confirmTransaction({
-                blockhash: latestBlockHash.blockhash,
-                lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
-                signature: signature
-            });
+                // Execute the transaction
+                log('Sending transaction...', true);
+                const rawTransaction = transaction.serialize();
+                const signature = await this.connection.sendRawTransaction(rawTransaction, {
+                    skipPreflight: true,
+                    maxRetries: 2
+                });
+                
+                log(`Transaction sent with signature: ${signature}`, true);
+                
+                // Wait for confirmation using the proper method from Jupiter docs
+                const confirmation = await this.connection.confirmTransaction({
+                    blockhash: latestBlockHash.blockhash,
+                    lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+                    signature: signature
+                });
 
-            log(`Purchase transaction confirmed: ${JSON.stringify(confirmation)}`, true);
+                log(`Purchase transaction confirmed: ${JSON.stringify(confirmation)}`, true);
 
-            // Check if transaction actually succeeded
-            if (confirmation.value.err) {
-                log(`Purchase transaction failed with error: ${JSON.stringify(confirmation.value.err)}`, true);
-                return { 
-                    success: false, 
-                    message: `Purchase transaction failed: ${JSON.stringify(confirmation.value.err)}`,
-                    txid: signature,
-                    error: confirmation.value.err
+                // Check if transaction actually succeeded
+                if (confirmation.value.err) {
+                    log(`Purchase transaction failed with error: ${JSON.stringify(confirmation.value.err)}`, true);
+                     if (attempt <= maxRetries) {
+                        await new Promise(resolve => setTimeout(resolve, 2000)); // wait before retrying
+                        continue;
+                    } else {
+                        return { 
+                            success: false, 
+                            message: `Purchase transaction failed: ${JSON.stringify(confirmation.value.err)}`,
+                            txid: signature,
+                            error: confirmation.value.err
+                        };
+                    }
+                }
+
+                log(`Swap successful! Transaction signature: ${signature}`, true);
+                log(`View transaction: https://solscan.io/tx/${signature}`, true);
+                
+                // Get initial price for tracking
+                const initialPrice = await this.getTokenPrice(tokenAddress);
+
+                // Check actual received amount vs expected
+                const actualBalance = await this.getTokenBalance(tokenAddress);
+                log(`Expected token amount: ${quoteData.outAmount}`, true);
+                log(`Actual token balance after purchase: ${actualBalance}`, true);
+                
+                // Record the purchase
+                const purchaseTime = new Date();
+                const messageTime = msg && msg.date ? new Date(msg.date * 1000) : purchaseTime;
+                
+                purchasedToken = {
+                    tokenAddress,
+                    purchaseTime: purchaseTime.toISOString(),
+                    messageTime: messageTime.toISOString(),
+                    purchasePrice: initialPrice,
+                    tokenAmount: actualBalance, // Use actual balance instead of quote amount
+                    solAmount: purchase_amount_sol,
+                    pricePerTokenUSD: initialPrice
                 };
-            }
-
-            log(`Swap successful! Transaction signature: ${signature}`, true);
-            log(`View transaction: https://solscan.io/tx/${signature}`, true);
-            
-            // Get initial price for tracking
-            const initialPrice = await this.getTokenPrice(tokenAddress);
-
-            // Check actual received amount vs expected
-            const actualBalance = await this.getTokenBalance(tokenAddress);
-            log(`Expected token amount: ${quoteData.outAmount}`, true);
-            log(`Actual token balance after purchase: ${actualBalance}`, true);
-            
-            // Record the purchase
-            const purchaseTime = new Date();
-            const messageTime = msg && msg.date ? new Date(msg.date * 1000) : purchaseTime;
-            
-            purchasedToken = {
-                tokenAddress,
-                purchaseTime: purchaseTime.toISOString(),
-                messageTime: messageTime.toISOString(),
-                purchasePrice: initialPrice,
-                tokenAmount: actualBalance, // Use actual balance instead of quote amount
-                solAmount: purchase_amount_sol,
-                pricePerTokenUSD: initialPrice
-            };
-            
-            // Initialize price history with purchase price
-            priceHistory = [{
-                timestamp: purchaseTime.toISOString(),
-                price: initialPrice
-            }];
-            
-            log(`Token ${tokenAddress} purchased at ${purchaseTime.toISOString()}`, true);
-            log(`Message received at: ${messageTime.toISOString()}`, true);
-            log(`Purchase price: $${initialPrice} USD per token`, true);
-            
-            return { 
-                success: true, 
-                message: `Successfully purchased ${tokenAddress}`,
-                purchaseTime: purchaseTime.toISOString(),
-                txid: signature,
-                outAmount: quoteData.outAmount
-            };
-
-        } catch (error) {
-            log(`Error during purchase of ${tokenAddress}: ${error.message || error.toString() || JSON.stringify(error)}`, true);
-            log(`Full error object: ${JSON.stringify(error, null, 2)}`, true);
-            
-            // Check if this is a timeout error but transaction might have succeeded
-            const isTimeoutError = error.message && (
-                error.message.includes('block height exceeded') ||
-                error.message.includes('has expired') ||
-                error.message.includes('timeout') ||
-                error.message.includes('Transaction was not confirmed')
-            );
-            
-            if (isTimeoutError && error.signature) {
-                log(`Timeout error detected, verifying if transaction actually succeeded...`, true);
                 
-                // Wait a moment for the transaction to settle
-                await new Promise(resolve => setTimeout(resolve, 3000));
+                // Initialize price history with purchase price
+                priceHistory = [{
+                    timestamp: purchaseTime.toISOString(),
+                    price: initialPrice
+                }];
                 
-                const verification = await this.verifyTransactionSuccess(error.signature, tokenAddress, 0);
+                log(`Token ${tokenAddress} purchased at ${purchaseTime.toISOString()}`, true);
+                log(`Message received at: ${messageTime.toISOString()}`, true);
+                log(`Purchase price: $${initialPrice} USD per token`, true);
                 
-                if (verification.success) {
-                    log(`Transaction actually succeeded despite timeout! Treating as successful purchase.`, true);
+                return { 
+                    success: true, 
+                    message: `Successfully purchased ${tokenAddress}`,
+                    purchaseTime: purchaseTime.toISOString(),
+                    txid: signature,
+                    outAmount: quoteData.outAmount
+                };
+
+            } catch (error) {
+                log(`Error during purchase attempt ${attempt} for ${tokenAddress}: ${error.message || error.toString() || JSON.stringify(error)}`, true);
+                log(`Full error object on attempt ${attempt}: ${JSON.stringify(error, null, 2)}`, true);
+                
+                // Check if this is a timeout error but transaction might have succeeded
+                const isTimeoutError = error.message && (
+                    error.message.includes('block height exceeded') ||
+                    error.message.includes('has expired') ||
+                    error.message.includes('timeout') ||
+                    error.message.includes('Transaction was not confirmed')
+                );
+                
+                if (isTimeoutError && error.signature) {
+                    log(`Timeout error detected, verifying if transaction actually succeeded...`, true);
                     
-                    // Get initial price for tracking
-                    const initialPrice = await this.getTokenPrice(tokenAddress);
+                    // Wait a moment for the transaction to settle
+                    await new Promise(resolve => setTimeout(resolve, 3000));
                     
-                    // Record the purchase
-                    const purchaseTime = new Date();
-                    const messageTime = msg && msg.date ? new Date(msg.date * 1000) : purchaseTime;
+                    const verification = await this.verifyTransactionSuccess(error.signature, tokenAddress, 0);
                     
-                    purchasedToken = {
-                        tokenAddress,
-                        purchaseTime: purchaseTime.toISOString(),
-                        messageTime: messageTime.toISOString(),
-                        purchasePrice: initialPrice,
-                        tokenAmount: verification.actualBalance,
-                        solAmount: purchase_amount_sol
-                    };
-                    
-                    // Initialize price history with purchase price
-                    priceHistory = [{
-                        timestamp: purchaseTime.toISOString(),
-                        price: initialPrice
-                    }];
-                    
-                    log(`Token ${tokenAddress} purchased at ${purchaseTime.toISOString()} (verified after timeout)`, true);
-                    log(`View transaction: https://solscan.io/tx/${error.signature}`, true);
-                    
+                    if (verification.success) {
+                        log(`Transaction actually succeeded despite timeout! Treating as successful purchase.`, true);
+                        
+                        // Get initial price for tracking
+                        const initialPrice = await this.getTokenPrice(tokenAddress);
+                        
+                        // Record the purchase
+                        const purchaseTime = new Date();
+                        const messageTime = msg && msg.date ? new Date(msg.date * 1000) : purchaseTime;
+                        
+                        purchasedToken = {
+                            tokenAddress,
+                            purchaseTime: purchaseTime.toISOString(),
+                            messageTime: messageTime.toISOString(),
+                            purchasePrice: initialPrice,
+                            tokenAmount: verification.actualBalance,
+                            solAmount: purchase_amount_sol
+                        };
+                        
+                        // Initialize price history with purchase price
+                        priceHistory = [{
+                            timestamp: purchaseTime.toISOString(),
+                            price: initialPrice
+                        }];
+                        
+                        log(`Token ${tokenAddress} purchased at ${purchaseTime.toISOString()} (verified after timeout)`, true);
+                        log(`View transaction: https://solscan.io/tx/${error.signature}`, true);
+                        
+                        return { 
+                            success: true, 
+                            message: `Successfully purchased ${tokenAddress} (verified after timeout)`,
+                            purchaseTime: purchaseTime.toISOString(),
+                            txid: error.signature,
+                            outAmount: verification.actualBalance
+                        };
+                    }
+                }
+                
+                if (attempt > maxRetries) {
+                    log(`All ${maxRetries + 1} purchase attempts failed for ${tokenAddress}.`, true);
                     return { 
-                        success: true, 
-                        message: `Successfully purchased ${tokenAddress} (verified after timeout)`,
-                        purchaseTime: purchaseTime.toISOString(),
-                        txid: error.signature,
-                        outAmount: verification.actualBalance
+                        success: false, 
+                        message: `Purchase failed for ${tokenAddress}: ${error.message || error.toString() || 'Unknown error'}` 
                     };
                 }
+
+                log(`Waiting 2 seconds before retry...`, true);
+                await new Promise(resolve => setTimeout(resolve, 2000));
             }
-            
-            return { 
-                success: false, 
-                message: `Purchase failed for ${tokenAddress}: ${error.message || error.toString() || 'Unknown error'}` 
-            };
         }
+        return { 
+            success: false, 
+            message: `Purchase failed for ${tokenAddress} after all retries.` 
+        };
     }
 
     async getTokenBalance(tokenAddress) {
