@@ -5,7 +5,7 @@
     "slippage_bps": 2000, 
     "compute_unit_price_micro_lamports": 50000,
     "compute_unit_limit": 200000,
-    "purchase_amount_sol": 0.25,
+    "purchase_amount_sol": 0.15,
     "take_profit_percentage": 70
   },
   "logging": {
