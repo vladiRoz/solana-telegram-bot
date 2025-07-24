@@ -32,15 +32,11 @@ function isValidSolanaAddress(address) {
 function extractSolanaAddresses(messageText) {
     if (!messageText || typeof messageText !== "string") return null;
 
-    // First try to find address in dexscreener URL as it's more reliable
-    const dexscreenerRegex = /dexscreener\.com\/solana\/([1-9A-HJ-NP-Za-km-z]{32,44})/i;
-    const dexscreenerMatch = messageText.match(dexscreenerRegex);
-    if (dexscreenerMatch && dexscreenerMatch[1] && isValidSolanaAddress(dexscreenerMatch[1])) {
-        log('Found dexscreener address: ' + dexscreenerMatch[1]);
-        return dexscreenerMatch[1];
+    if (/dexscreener\.com/i.test(messageText)) {
+        return null;
     }
 
-    // If no dexscreener URL found, look for any valid base58 address
+    // Look for any valid base58 address
     const base58Matches = messageText.match(SOLANA_ADDRESS_REGEX_BASE58);
     
     if (base58Matches) {

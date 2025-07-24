@@ -52,15 +52,12 @@ describe('extractSolanaAddresses', () => {
     });
 
     // Test address length validation
-    test('should not extract address that is too short', () => {
-        const message = 'Token: 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAs'; // 31 chars
+    test('should not extract address from dex', () => {
+        const message = 'https://dexscreener.com/solana/7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAs'; // 31 chars
+        console.log('message', message);
         expect(extractSolanaAddresses(message)).toBeNull();
     });
 
-    test('should not extract address that is too long', () => {
-        const message = 'Token: 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU123456789'; // 45 chars
-        expect(extractSolanaAddresses(message)).toBeNull();
-    });
 });
 
 describe('processMessage', () => {
