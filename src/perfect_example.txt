@@ -1,0 +1,62 @@
+[2025-08-09T05:59:45.875] Found potential Solana address in message from VIP Call: HtBLcpyVHfB817UHdhS3uYcULCqH2t6StCie2i4ebxHN
+[2025-08-09T05:59:45.882] Waiting 30 seconds before re-verifying message for address HtBLcpyVHfB817UHdhS3uYcULCqH2t6StCie2i4ebxHN...
+[2025-08-09T06:00:05.885] -----------------------------------------------------------------
+[2025-08-09T06:00:05.886] Re-verifying message 242 in chat VIP Call for address HtBLcpyVHfB817UHdhS3uYcULCqH2t6StCie2i4ebxHN...
+[2025-08-09T06:00:06.339] lastMessageAddress [null,null]
+[2025-08-09T06:00:06.340] Address HtBLcpyVHfB817UHdhS3uYcULCqH2t6StCie2i4ebxHN no longer exists in the last message of VIP Call, skipping...
+[2025-08-10T03:37:37.315] Found potential Solana address in message from VIP Call: T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump
+[2025-08-10T03:37:37.318] Waiting 30 seconds before re-verifying message for address T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump...
+[2025-08-10T03:37:57.321] -----------------------------------------------------------------
+[2025-08-10T03:37:57.322] Re-verifying message 243 in chat VIP Call for address T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump...
+[2025-08-10T03:37:57.868] lastMessageAddress ["T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump",null]
+[2025-08-10T03:37:57.871] Attempting to handle purchase for token: T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump
+[2025-08-10T03:37:57.873] Attempting to purchase T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump with 0.15 SOL.
+[2025-08-10T03:37:57.874] Slippage: 2000 bps, Amount (Lamports): 150000000
+[2025-08-10T03:37:57.876] Compute Unit Price (microLamports): 50000, Compute Unit Limit: 200000
+[2025-08-10T03:37:57.879] Purchase attempt 1/3 for token: T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump
+[2025-08-10T03:37:58.379] Wallet balance: 0.1778765 SOL
+[2025-08-10T03:37:58.381] Getting quote from: https://quote-api.jup.ag/v6/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump&amount=150000000&slippageBps=2000
+[2025-08-10T03:37:58.796] Quote response: {"inputMint":"So11111111111111111111111111111111111111112","inAmount":"150000000","outputMint":"T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump","outAmount":"107448098937","otherAmountThreshold":"85958479150","swapMode":"ExactIn","slippageBps":2000,"platformFee":null,"priceImpactPct":"0","routePlan":[{"swapInfo":{"ammKey":"Ew7U1mNtv4JKAMEfjRSxrHx4WBNwiiiWWTdBVigfC6Y8","label":"Pump.fun Amm","inputMint":"So11111111111111111111111111111111111111112","outputMint":"T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump","inAmount":"150000000","outAmount":"107448098937","feeAmount":"450000","feeMint":"So11111111111111111111111111111111111111112"},"percent":100,"bps":10000}],"contextSlot":358946476,"timeTaken":0.000530607,"swapUsdValue":"27.229152707187712115099588992","simplerRouteUsed":false,"mostReliableAmmsQuoteReport":{"info":{"Ew7U1mNtv4JKAMEfjRSxrHx4WBNwiiiWWTdBVigfC6Y8":"107448098937","Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE":"Not used RG: FullLiquidIntermediate, contains ALT: true"}},"useIncurredSlippageForQuoting":null,"otherRoutePlans":null,"aggregatorVersion":null}
+[2025-08-10T03:37:58.797] Best route found with price impact: 0%
+[2025-08-10T03:37:58.797] Expected output amount: 107448098937
+[2025-08-10T03:37:59.128] Transaction deserialized successfully
+[2025-08-10T03:37:59.158] Transaction signed successfully
+[2025-08-10T03:37:59.279] Sending transaction...
+[2025-08-10T03:37:59.380] Transaction sent with signature: 5ix2Qgg6zLs2uG6PHL8c29kELk9mqnrHXSVmUMM97KcH5fwGbzPtYZF6dMxR9KNY78bj8Agk2ERHuwjNHuXL6Phc
+[2025-08-10T03:38:02.325] Purchase transaction confirmed: {"context":{"slot":358946485},"value":{"err":null}}
+[2025-08-10T03:38:02.326] Swap successful! Transaction signature: 5ix2Qgg6zLs2uG6PHL8c29kELk9mqnrHXSVmUMM97KcH5fwGbzPtYZF6dMxR9KNY78bj8Agk2ERHuwjNHuXL6Phc
+[2025-08-10T03:38:02.327] View transaction: https://solscan.io/tx/5ix2Qgg6zLs2uG6PHL8c29kELk9mqnrHXSVmUMM97KcH5fwGbzPtYZF6dMxR9KNY78bj8Agk2ERHuwjNHuXL6Phc
+[2025-08-10T03:38:02.828] Current wallet balance for T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump: 105989215513
+[2025-08-10T03:38:02.829] Expected token amount: 107448098937
+[2025-08-10T03:38:02.830] Actual token balance after purchase: 105989215513
+[2025-08-10T03:38:02.830] Token T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump purchased at 2025-08-09T17:38:02.830Z
+[2025-08-10T03:38:02.831] Message received at: 2025-08-09T17:37:36.000Z
+[2025-08-10T03:38:02.832] Purchase price: $0.0002568883 USD per token
+[2025-08-10T03:38:11.612] startTokenMonitoring - Current price: $0.0002585047 USD per token
+[2025-08-10T03:40:11.617] startTokenMonitoring - Current price: $0.0002616296 USD per token
+[2025-08-10T03:42:11.627] startTokenMonitoring - Current price: $0.0003312226 USD per token
+[2025-08-10T03:44:11.628] startTokenMonitoring - Current price: $0.0003429622 USD per token
+[2025-08-10T03:46:11.634] startTokenMonitoring - Current price: $0.0003172753 USD per token
+[2025-08-10T03:48:11.639] startTokenMonitoring - Current price: $0.0003491297 USD per token
+[2025-08-10T03:50:11.645] startTokenMonitoring - Current price: $0.0002966249 USD per token
+[2025-08-10T03:52:21.625] startTokenMonitoring - Current price: $0.0003027177 USD per token
+[2025-08-10T03:54:21.651] startTokenMonitoring - Current price: $0.0003255883 USD per token
+[2025-08-10T03:56:31.670] startTokenMonitoring - Current price: $0.0003119874 USD per token
+[2025-08-10T03:58:41.653] startTokenMonitoring - Current price: $0.0003590949 USD per token
+[2025-08-10T04:00:51.649] startTokenMonitoring - Current price: $0.0003925687 USD per token
+[2025-08-10T04:01:31.691] Take profit triggered for T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump - 70%+ gain detected (79.81%)
+[2025-08-10T04:01:31.692] Attempting to sell token: T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump (Reason: Take profit - 70% gain)
+[2025-08-10T04:01:31.793] Current wallet balance for T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump: 105989215513
+[2025-08-10T04:01:31.794] Current token balance: 105989215513, selling ALL tokens
+[2025-08-10T04:01:31.794] Getting sell quote from: https://quote-api.jup.ag/v6/quote?inputMint=T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump&outputMint=So11111111111111111111111111111111111111112&amount=105989215513&slippageBps=2000
+[2025-08-10T04:01:32.085] Sell quote response: {"inputMint":"T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump","inAmount":"105989215513","outputMint":"So11111111111111111111111111111111111111112","outAmount":"267672539","otherAmountThreshold":"214138032","swapMode":"ExactIn","slippageBps":2000,"platformFee":null,"priceImpactPct":"0","routePlan":[{"swapInfo":{"ammKey":"Ew7U1mNtv4JKAMEfjRSxrHx4WBNwiiiWWTdBVigfC6Y8","label":"Pump.fun Amm","inputMint":"T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump","outputMint":"So11111111111111111111111111111111111111112","inAmount":"105989215513","outAmount":"267672539","feeAmount":"805434","feeMint":"So11111111111111111111111111111111111111112"},"percent":100,"bps":10000}],"contextSlot":358949993,"timeTaken":0.000542255,"swapUsdValue":"48.555567471463285522204759934","simplerRouteUsed":false,"mostReliableAmmsQuoteReport":{"info":{"Ew7U1mNtv4JKAMEfjRSxrHx4WBNwiiiWWTdBVigfC6Y8":"267672539","Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE":"Not used RG: FullLiquidIntermediate, contains ALT: true"}},"useIncurredSlippageForQuoting":null,"otherRoutePlans":null,"aggregatorVersion":null}
+[2025-08-10T04:01:32.086] Best sell route found with price impact: 0%
+[2025-08-10T04:01:32.405] Sell transaction deserialized successfully
+[2025-08-10T04:01:32.409] Sell transaction signed successfully
+[2025-08-10T04:01:32.507] Sending sell transaction...
+[2025-08-10T04:01:32.605] Sell transaction sent with signature: 5tBLcR6oe4bQTaio8bS7TDhqLGe4iG7gnRBinzFYyHHboYpeH7HxenwzcH61FLZKDDnhcV4GEQDAh1j2RnbsYaq7
+[2025-08-10T04:01:33.292] Sell transaction confirmed: {"context":{"apiVersion":"2.3.6","slot":358949995},"value":{"confirmationStatus":"confirmed","confirmations":0,"err":null,"slot":358949995,"status":{"Ok":null}}}
+[2025-08-10T04:01:33.294] Sell successful! Transaction signature: 5tBLcR6oe4bQTaio8bS7TDhqLGe4iG7gnRBinzFYyHHboYpeH7HxenwzcH61FLZKDDnhcV4GEQDAh1j2RnbsYaq7
+[2025-08-10T04:01:33.295] SOL received: 0.267672539, Profit: 0.11767253899999999 SOL (78.45%)
+[2025-08-10T04:01:33.296] View transaction: https://solscan.io/tx/5tBLcR6oe4bQTaio8bS7TDhqLGe4iG7gnRBinzFYyHHboYpeH7HxenwzcH61FLZKDDnhcV4GEQDAh1j2RnbsYaq7
+[2025-08-10T04:01:33.297] Added T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump to the session's sold tokens list. It will not be purchased again.
