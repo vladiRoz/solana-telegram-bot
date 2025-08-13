@@ -12,9 +12,10 @@
     "show_timestamps": true
   },
   "excluded_tokens": [
-    "5bXVGNnGhCFAK9KPh1S9whFkhVxZy1mREWFbqB499xUP",
     "T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump",
     "QMaZd9LkqQexX2jz2LEir6N18PSYHm4pRjVTq5abonk",
-    "DSfhSCTkCxnA7qGmdPzroA6pFTB2s9on2ZfAVXdLpump"
+    "DSfhSCTkCxnA7qGmdPzroA6pFTB2s9on2ZfAVXdLpump",
+    "DWtnQvP98QcWtDSWd1ASCWfSpnvWTQV2zmkGcQoipump"
+
   ]
 }
