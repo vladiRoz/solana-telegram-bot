@@ -7,7 +7,8 @@
     "start": "node src/index.js",
     "test-telegram": "node src/modules/test-telegram.js",
     "logs:show": "cat logs/bot-activity.log",
-    "logs:delete": "rm -f logs/*.log || true"
+    "logs:delete": "rm -f logs/*.log || true",
+    "restart": "pm2 restart solana-telegram-bot"
   },
   "keywords": [],
   "author": "",
