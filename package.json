@@ -5,7 +5,9 @@
   "scripts": {
     "test": "jest",
     "start": "node src/index.js",
-    "test-telegram": "node src/modules/test-telegram.js"
+    "test-telegram": "node src/modules/test-telegram.js",
+    "logs:show": "cat logs/bot-activity.log",
+    "logs:delete": "rm -f logs/*.log || true"
   },
   "keywords": [],
   "author": "",
