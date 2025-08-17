@@ -3,7 +3,7 @@
   "solana_rpc_endpoint": "https://api.mainnet-beta.solana.com",
   "trading_settings": {
     "slippage_bps": 2000, 
-    "compute_unit_price_micro_lamports": 50000,
+    "compute_unit_price_micro_lamports": 500000,
     "compute_unit_limit": 200000,
     "purchase_amount_sol": 0.3,
     "take_profit_percentage": 70
@@ -12,10 +12,9 @@
     "show_timestamps": true
   },
   "excluded_tokens": [
-    "T1Hf5w9772oCkp8cnhoSdKdfjsKieVGEnDuNJeEpump",
-    "QMaZd9LkqQexX2jz2LEir6N18PSYHm4pRjVTq5abonk",
     "DSfhSCTkCxnA7qGmdPzroA6pFTB2s9on2ZfAVXdLpump",
-    "DWtnQvP98QcWtDSWd1ASCWfSpnvWTQV2zmkGcQoipump"
+    "DWtnQvP98QcWtDSWd1ASCWfSpnvWTQV2zmkGcQoipump",
+    "9dEcM4kpKW7tupAA1Y4QVGVDhL6rwDrWZ3ogs7kpump"
 
   ]
 }
