@@ -42,7 +42,7 @@ async function testHandleSell() {
 
     try {
         // Initialize Solana Trader
-        const solanaTrader = new SolanaTrader();
+        const solanaTrader = new SolanaTrader(process.env.SOLANA_WALLET_PRIVATE_KEY);
         
         // Check actual token balance before setting mock data
         const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");

@@ -1,10 +1,10 @@
 require("dotenv").config();
-const { Connection, Keypair, PublicKey, LAMPORTS_PER_SOL, VersionedTransaction, ComputeBudgetProgram } = require("@solana/web3.js");
+const { Connection, Keypair, PublicKey, LAMPORTS_PER_SOL, VersionedTransaction } = require("@solana/web3.js");
 const fetch = require('cross-fetch');
 const bs58 = require("bs58");
 const fs = require("fs");
 const path = require("path");
-const { convertPrivateKeyToBase58 } = require("./utils");
+const { convertPrivateKeyToBase58 } = require("../utils/utils");
 const { log } = require("../utils/logger");
 
 // Load config
@@ -21,17 +21,16 @@ let lastLogTime = 0;
 const SOL_MINT = 'So11111111111111111111111111111111111111112'; // Wrapped SOL mint address
 const JUPITER_API_BASE = 'https://quote-api.jup.ag/v6';
 const PRICE_CHECK_INTERVAL = 10000; // 10 seconds
-const BIRDEYE_API_BASE = 'https://public-api.birdeye.so';
 
 class SolanaTrader {
-    constructor() {
-        if (!process.env.SOLANA_WALLET_PRIVATE_KEY) {
-            throw new Error("SOLANA_WALLET_PRIVATE_KEY is not set in .env file");
+    constructor(privateKey) {
+        if (!privateKey) {
+            throw new Error("Private key is required");
         }
 
         try {
             // Convert the private key from JSON array to base58
-            const privateKeyBase58 = convertPrivateKeyToBase58(process.env.SOLANA_WALLET_PRIVATE_KEY);
+            const privateKeyBase58 = convertPrivateKeyToBase58(privateKey);
             
             // Create wallet from base58 private key
             this.wallet = Keypair.fromSecretKey(bs58.decode(privateKeyBase58));
@@ -39,7 +38,7 @@ class SolanaTrader {
             log('Wallet public key: ' + this.wallet.publicKey.toBase58());
         } catch (error) {
             log("Failed to load wallet from private key: " + error.message);
-            throw new Error("Invalid SOLANA_WALLET_PRIVATE_KEY. Ensure it is a valid JSON array of numbers.");
+            throw new Error("Invalid private key. Ensure it is a valid JSON array of numbers.");
         }
 
         this.connection = new Connection(config.solana_rpc_endpoint || "https://api.mainnet-beta.solana.com", "confirmed");

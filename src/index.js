@@ -7,13 +7,8 @@ const { processMessage } = require("./modules/messageProcessor");
 const SolanaTrader = require("./modules/solanaTrader");
 const { log } = require("./utils/logger");
 
-// Load config
 const configPath = path.resolve(__dirname, "../config/config.json"); // Adjusted path for src directory
 const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-
-// from config
-// "VIP Paid Channel 🔐",
-// "TangerineTrip"
 
 async function main() {
     log("Starting application...");
@@ -33,8 +28,14 @@ async function main() {
     }
 
     try {
+        // Validate Solana wallet private key
+        if (!process.env.SOLANA_WALLET_PRIVATE_KEY) {
+            log("Error: SOLANA_WALLET_PRIVATE_KEY is not set in .env file.");
+            process.exit(1);
+        }
+
         // Initialize Solana Trader
-        const solanaTrader = new SolanaTrader();
+        const solanaTrader = new SolanaTrader(process.env.SOLANA_WALLET_PRIVATE_KEY);
 
         // Start token monitoring
         await solanaTrader.startTokenMonitoring();

@@ -8,7 +8,7 @@ async function testHandleTokenPrice() {
     log("Testing FIXED getTokenPrice function...");
 
     try {
-        const solanaTrader = new SolanaTrader();
+        const solanaTrader = new SolanaTrader(process.env.SOLANA_WALLET_PRIVATE_KEY);
         
         log("Getting price with decimal correction...");
         const price = await solanaTrader.getTokenPrice(tokenAddress);
