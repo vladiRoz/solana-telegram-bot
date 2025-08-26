@@ -9,6 +9,8 @@ const apiHash = process.env.TELEGRAM_APP_API_HASH || '';
 // Create new session (empty string for new session)
 const stringSession = new StringSession('');
 
+// todo make this auto
+
 async function createNewSession() {
     console.log('Creating new Telegram session...');
     
