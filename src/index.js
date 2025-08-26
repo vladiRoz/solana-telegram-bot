@@ -5,6 +5,7 @@ const path = require("path");
 const { setMessageHandler, startClient, stopClient } = require("./modules/telegramListener");
 const { processMessage } = require("./modules/messageProcessor");
 const SolanaTrader = require("./modules/solanaTrader");
+const { startTokenMonitoring, stopTokenMonitoring } = require("./modules/tokenMonitoring");
 const { log } = require("./utils/logger");
 
 const configPath = path.resolve(__dirname, "../config/config.json"); // Adjusted path for src directory
@@ -47,10 +48,30 @@ async function main() {
 
                 if (address !== null) {
                     log(`Message for ${address} verified. Proceeding to trading module.`);
-                    // Start token monitoring
-                    await solanaTrader.startTokenMonitoring();
-                    log("Token monitoring started successfully");
-                    await solanaTrader.handlePurchase(address, msg);
+
+                    // Start token monitoring with action callback
+                    startTokenMonitoring(solanaTrader.connection, async (action, actionData) => {
+                        try {
+                            if (action === "SELL") {
+                                log(`Monitoring triggered SELL action for ${actionData.tokenAddress}: ${actionData.reason}`, true);
+                                const sellResult = await solanaTrader.handleSell(actionData.tokenAddress, actionData.reason);
+                                
+                                if (sellResult.success) {
+                                    log(`Sell completed successfully: ${sellResult.message}`, true);
+                                } else {
+                                    log(`Sell failed: ${sellResult.message}`, true);
+                                }
+                            }
+                        } catch (error) {
+                            log(`Error handling monitoring action ${action}: ${error.message}`, true);
+                        }
+                    });
+
+                    const purchaseResult = await solanaTrader.handlePurchase(address, msg);
+                    
+                    if (purchaseResult.success) {
+                        log("Token monitoring already running for purchased tokens", true);
+                    }
                 }                
 
             } catch (error) {
@@ -73,12 +94,14 @@ async function main() {
 // Ensure proper cleanup on exit
 process.on("SIGINT", async () => {
     log("Shutting down...");
+    stopTokenMonitoring();
     await stopClient();
     process.exit(0);
 });
 
 process.on("SIGTERM", async () => {
     log("Shutting down...");
+    stopTokenMonitoring();
     await stopClient();
     process.exit(0);
 });

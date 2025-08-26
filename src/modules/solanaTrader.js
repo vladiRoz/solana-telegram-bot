@@ -6,19 +6,12 @@ const fs = require("fs");
 const path = require("path");
 const { convertPrivateKeyToBase58, getTokenPrice } = require("../utils/utils");
 const { log } = require("../utils/logger");
-const { SOL_MINT, JUPITER_API_BASE, PRICE_CHECK_INTERVAL } = require("../utils/consts");
+const { SOL_MINT, JUPITER_API_BASE } = require("../utils/consts");
+const tokenState = require("../utils/tokenState");
 
 // Load config
 const configPath = path.resolve(__dirname, "../../config/config.json");
 const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-
-// Store purchased token details (only one token at a time)
-let purchasedToken = null; // {tokenAddress, purchaseTime, messageTime, purchasePrice, tokenAmount, solAmount}
-let priceHistory = []; // Array of {timestamp, price} objects for the current token
-let sold_tokens = []; // In-memory list of sold tokens for this session
-let lastLogTime = 0;
-
-
 class SolanaTrader {
     constructor(privateKey) {
         if (!privateKey) {
@@ -54,7 +47,7 @@ class SolanaTrader {
             };
         }
 
-        if (sold_tokens.includes(tokenAddress)) {
+        if (tokenState.isTokenSold(tokenAddress)) {
             log(`Token ${tokenAddress} has been sold before in this session. Skipping purchase.`, true);
             return {
                 success: false,
@@ -62,13 +55,14 @@ class SolanaTrader {
             };
         }
 
-        if (purchasedToken) {
-            log(`Cannot purchase ${tokenAddress}. Already holding token: ${purchasedToken.tokenAddress} since ${purchasedToken.purchaseTime}`, true);
+        if (tokenState.hasPurchasedToken()) {
+            const currentToken = tokenState.getPurchasedToken();
+            log(`Cannot purchase ${tokenAddress}. Already holding token: ${currentToken.tokenAddress} since ${currentToken.purchaseTime}`, true);
             return { 
                 success: false, 
-                message: `Already holding token: ${purchasedToken.tokenAddress}`,
-                currentToken: purchasedToken.tokenAddress,
-                purchaseTime: purchasedToken.purchaseTime
+                message: `Already holding token: ${currentToken.tokenAddress}`,
+                currentToken: currentToken.tokenAddress,
+                purchaseTime: currentToken.purchaseTime
             };
         }
 
@@ -205,7 +199,7 @@ class SolanaTrader {
                 const purchaseTime = new Date();
                 const messageTime = msg && msg.date ? new Date(msg.date * 1000) : purchaseTime;
                 
-                purchasedToken = {
+                const purchasedTokenData = {
                     tokenAddress,
                     purchaseTime: purchaseTime.toISOString(),
                     messageTime: messageTime.toISOString(),
@@ -214,12 +208,13 @@ class SolanaTrader {
                     solAmount: purchase_amount_sol,
                     pricePerTokenUSD: initialPrice
                 };
+                tokenState.setPurchasedToken(purchasedTokenData);
                 
                 // Initialize price history with purchase price
-                priceHistory = [{
+                tokenState.setPriceHistory([{
                     timestamp: purchaseTime.toISOString(),
                     price: initialPrice
-                }];
+                }]);
                 
                 log(`Token ${tokenAddress} purchased at ${purchaseTime.toISOString()}`, true);
                 log(`Message received at: ${messageTime.toISOString()}`, true);
@@ -263,7 +258,7 @@ class SolanaTrader {
                         const purchaseTime = new Date();
                         const messageTime = msg && msg.date ? new Date(msg.date * 1000) : purchaseTime;
                         
-                        purchasedToken = {
+                        const purchasedTokenData = {
                             tokenAddress,
                             purchaseTime: purchaseTime.toISOString(),
                             messageTime: messageTime.toISOString(),
@@ -271,12 +266,13 @@ class SolanaTrader {
                             tokenAmount: verification.actualBalance,
                             solAmount: purchase_amount_sol
                         };
+                        tokenState.setPurchasedToken(purchasedTokenData);
                         
                         // Initialize price history with purchase price
-                        priceHistory = [{
+                        tokenState.setPriceHistory([{
                             timestamp: purchaseTime.toISOString(),
                             price: initialPrice
-                        }];
+                        }]);
                         
                         log(`Token ${tokenAddress} purchased at ${purchaseTime.toISOString()} (verified after timeout)`, true);
                         log(`View transaction: https://solscan.io/tx/${error.signature}`, true);
@@ -339,7 +335,8 @@ class SolanaTrader {
     async handleSell(tokenAddress, sellReason = "Manual") {
         log(`Attempting to sell token: ${tokenAddress} (Reason: ${sellReason})`, true);
 
-        if (!purchasedToken || purchasedToken.tokenAddress !== tokenAddress) {
+        const currentToken = tokenState.getPurchasedToken();
+        if (!currentToken || currentToken.tokenAddress !== tokenAddress) {
             log(`Token ${tokenAddress} was not purchased by this bot. Skipping sell.`, true);
             return { success: false, message: "Token not found in purchase records" };
         }
@@ -448,22 +445,19 @@ class SolanaTrader {
 
             // Calculate profit/loss
             const solReceived = quoteData.outAmount / 1000000000;
-            const profit = solReceived - purchasedToken.solAmount;
-            const profitPercent = ((solReceived / purchasedToken.solAmount) - 1) * 100;
+            const profit = solReceived - currentToken.solAmount;
+            const profitPercent = ((solReceived / currentToken.solAmount) - 1) * 100;
 
             log(`Sell successful! Transaction signature: ${signature}`, true);
             log(`SOL received: ${solReceived}, Profit: ${profit} SOL (${profitPercent.toFixed(2)}%)`, true);
             log(`View transaction: https://solscan.io/tx/${signature}`, true);
             
             // Add to in-memory sold tokens list to prevent re-buying during this session
-            if (!sold_tokens.includes(tokenAddress)) {
-                sold_tokens.push(tokenAddress);
-                log(`Added ${tokenAddress} to the session's sold tokens list. It will not be purchased again.`, true);
-            }
+            tokenState.addToSoldTokens(tokenAddress);
+            log(`Added ${tokenAddress} to the session's sold tokens list. It will not be purchased again.`, true);
             
             // Remove from tracking only if transaction was successful
-            purchasedToken = null;
-            priceHistory = []; // Clear price history
+            tokenState.clearPurchasedToken();
             
             return { 
                 success: true, 
@@ -482,168 +476,6 @@ class SolanaTrader {
                 message: `Sell failed for ${tokenAddress}: ${error.message || error.toString() || 'Unknown error'}` 
             };
         }
-    }
-
-
-
-    getPriceAtTime(minutesAgo) {
-        if (priceHistory.length === 0) {
-            return 0;
-        }
-
-        const now = Date.now();
-        const targetTime = new Date(now - minutesAgo * 60 * 1000);
-        const oldestHistoryTime = new Date(priceHistory[0].timestamp);
-
-        // Check if we have enough history to even look back this far.
-        // If the oldest data point is more recent than our target time, we don't have data for that period.
-        if (oldestHistoryTime > targetTime) {
-            log(`Not enough price history to get price for ${minutesAgo}m ago. Oldest data is from ${oldestHistoryTime.toISOString()}`);
-            return 0;
-        }
-
-        // Find the closest price entry to the target time
-        let closest = priceHistory[0];
-        let minDiff = Math.abs(new Date(closest.timestamp) - targetTime);
-        
-        for (const entry of priceHistory) {
-            const diff = Math.abs(new Date(entry.timestamp) - targetTime);
-            if (diff < minDiff) {
-                minDiff = diff;
-                closest = entry;
-            }
-        }
-        
-        return closest.price;
-    }
-
-    decideSell(currentPrice, capital) {
-        if (!purchasedToken || priceHistory.length === 0) {
-            return { sellAt: "no data", returnRate: 0, finalCapital: 0 };
-        }
-
-        // Get prices at different time intervals
-        const price5m = this.getPriceAtTime(5);
-        const price10m = this.getPriceAtTime(10);
-        const price20m = this.getPriceAtTime(20);
-        
-        // Calculate return rates compared to purchase price
-        const purchasePrice = purchasedToken.purchasePrice;
-        const r5 = price5m > 0 ? currentPrice / price5m : 0;
-        const r10 = price10m > 0 ? currentPrice / price10m : 0;
-        const r20 = price20m > 0 ? currentPrice / price20m : 0;
-        const rCurrent = purchasePrice > 0 ? currentPrice / purchasePrice : 0;
-
-        log(`Price tracking - Current: ${currentPrice}, Purchase: ${purchasePrice}, 5m: ${price5m}, 10m: ${price10m}, 20m: ${price20m}`);
-        log(`Return rates - Current: ${rCurrent.toFixed(2)}x, 5m: ${r5.toFixed(2)}x, 10m: ${r10.toFixed(2)}x, 20m: ${r20.toFixed(2)}x`);
-
-        // Rule 3: Sell at 10m if it's dropping compared to 5m
-        if (r10 < r5 && r10 > 0) {
-            return { sellAt: "10m (drop detected)", returnRate: r10, finalCapital: capital * r10 };
-        }
-
-        // Rule 4: Sell at 10m if 20m shows further drop
-        if (r20 < r10 && r10 > 0) {
-            return { sellAt: "10m (pre-20m drop)", returnRate: r10, finalCapital: capital * r10 };
-        }
-
-        // No sell condition met
-        return { sellAt: "hold", returnRate: rCurrent, finalCapital: capital * rCurrent };
-    }
-
-    async startTokenMonitoring() {
-        log('Starting token monitoring...', true);
-        
-        setInterval(async () => {
-            try {
-                if (purchasedToken) {
-                    const currentPrice = await getTokenPrice(purchasedToken.tokenAddress, this.connection);
-
-                    const currentTime = Date.now();
-                    if (currentTime - (lastLogTime || 0) > 120000) { // Log every 2 minutes
-                        log(`startTokenMonitoring - Current price: $${currentPrice} USD per token`, true);
-                        lastLogTime = currentTime;
-                    }
-                    
-                    if (currentPrice === 0) return;
-
-                    // Add current price to history
-                    const now = new Date(currentTime).toISOString();
-                    priceHistory.push({
-                        timestamp: now,
-                        price: currentPrice
-                    });
-
-                    // Keep only last 2 hours of data (720 entries at 10-second intervals)
-                    if (priceHistory.length > 720) {
-                        priceHistory = priceHistory.slice(-720);
-                    }
-
-                    // Quick sell check: 50% gain
-                    const takeProfitRatio = 1 + (config.trading_settings.take_profit_percentage / 100);
-                    const priceRatio = currentPrice / purchasedToken.purchasePrice;
-                    if (priceRatio >= takeProfitRatio) {
-                        log(`Take profit triggered for ${purchasedToken.tokenAddress} - ${config.trading_settings.take_profit_percentage}%+ gain detected (${((priceRatio - 1) * 100).toFixed(2)}%)`, true);
-                        await this.handleSell(purchasedToken.tokenAddress, `Take profit - ${config.trading_settings.take_profit_percentage}% gain`);
-                        // making sure the purchasedToken is null otherwise it wont be able to purchase any other tokens
-                        purchasedToken = null;
-                        return;
-                    }
-
-                    // Strategic sell check using tracked price history
-                    // const sellDecision = this.decideSell(currentPrice, purchasedToken.solAmount);
-                    
-                    // if (sellDecision.sellAt !== "hold") {
-                    //     log(`Strategic sell triggered for ${purchasedToken.tokenAddress} - ${sellDecision.sellAt} (${((sellDecision.returnRate - 1) * 100).toFixed(2)}% return)`, true);
-                    //     await this.handleSell(purchasedToken.tokenAddress, `Strategic sell - ${sellDecision.sellAt}`);
-                    //     purchasedToken = null;
-                    //     return;
-                    // }
-                }
-            } catch (error) {
-                log(`Error in token monitoring: ${error.message}`, true);
-            }
-        }, PRICE_CHECK_INTERVAL);
-    }
-
-    // Helper method to get purchase time for a token
-    getPurchaseTime(tokenAddress) {
-        return purchasedToken && purchasedToken.tokenAddress === tokenAddress ? purchasedToken.purchaseTime : null;
-    }
-
-    // Helper method to get current purchased token
-    getCurrentToken() {
-        return purchasedToken;
-    }
-
-    // Helper method to check if we have a token
-    hasToken() {
-        return purchasedToken !== null;
-    }
-
-    // Helper method to get token address if we have one
-    getCurrentTokenAddress() {
-        return purchasedToken ? purchasedToken.tokenAddress : null;
-    }
-
-    // Method to manually sell current token
-    async sellCurrentToken(reason = "Manual") {
-        if (!purchasedToken) {
-            log("No token to sell");
-            return { success: false, message: "No token currently held" };
-        }
-        return await this.handleSell(purchasedToken.tokenAddress, reason);
-    }
-
-    // Method to set purchased token (for testing purposes only)
-    setPurchasedToken(tokenData) {
-        purchasedToken = tokenData;
-        log(`Purchased token set: ${JSON.stringify(tokenData, null, 2)}`);
-    }
-
-    // Method to get the full purchased token object
-    getPurchasedTokenObject() {
-        return purchasedToken;
     }
 
     async verifyTransactionSuccess(signature, tokenAddress, expectedMinAmount = 0) {

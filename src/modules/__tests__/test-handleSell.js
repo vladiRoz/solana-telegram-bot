@@ -2,6 +2,7 @@ require("dotenv").config({ path: "../../../.env" });
 const SolanaTrader = require("../solanaTrader");
 const { log } = require("../../utils/logger");
 const { Connection, PublicKey } = require("@solana/web3.js");
+const tokenState = require("../../utils/tokenState");
 
 const tokenAddress = "676YgDtdAekpjYwNvLSLFPkBooVxBqJVpgxxoHJPpump";
 
@@ -63,10 +64,10 @@ async function testHandleSell() {
         log(`Using token amount: ${mockToken.tokenAmount} (actual balance: ${actualBalance})`);
 
         // Set the mock purchased token using the new method
-        solanaTrader.setPurchasedToken(mockToken);
+        tokenState.setPurchasedToken(mockToken);
         
         // Verify the token was set correctly
-        const currentToken = solanaTrader.getPurchasedTokenObject();
+        const currentToken = tokenState.getPurchasedToken();
         log(`Current purchased token: ${JSON.stringify(currentToken, null, 2)}`);
         
         // Test selling the mock token
@@ -75,9 +76,9 @@ async function testHandleSell() {
 
         // Test case 3: Verify token was cleared after sell
         log("\n=== Test Case 3: Verify token cleared after sell ===");
-        const tokenAfterSell = solanaTrader.getPurchasedTokenObject();
+        const tokenAfterSell = tokenState.getPurchasedToken();
         log(`Token after sell: ${tokenAfterSell}`);
-        log(`Has token after sell: ${solanaTrader.hasToken()}`);
+        log(`Has token after sell: ${tokenState.hasPurchasedToken()}`);
 
     } catch (error) {
         log(`Test error: ${error.message}`);
