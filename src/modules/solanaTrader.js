@@ -1,5 +1,5 @@
 require("dotenv").config();
-const { Connection, Keypair, PublicKey, LAMPORTS_PER_SOL, VersionedTransaction } = require("@solana/web3.js");
+const { Keypair, PublicKey, LAMPORTS_PER_SOL, VersionedTransaction } = require("@solana/web3.js");
 const fetch = require('cross-fetch');
 const bs58 = require("bs58");
 const fs = require("fs");
@@ -9,31 +9,34 @@ const { log } = require("../utils/logger");
 const { SOL_MINT, JUPITER_API_BASE } = require("../utils/consts");
 const tokenState = require("../utils/tokenState");
 
-// Load config
 const configPath = path.resolve(__dirname, "../../config/config.json");
 const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 class SolanaTrader {
-    constructor(privateKey) {
+    constructor(privateKey, connection) {
         if (!privateKey) {
             throw new Error("Private key is required");
+        }
+
+        if (!connection) {
+            throw new Error("Solana connection is required");
         }
 
         try {
             // Convert the private key from JSON array to base58
             const privateKeyBase58 = convertPrivateKeyToBase58(privateKey);
-            
+
             // Create wallet from base58 private key
             this.wallet = Keypair.fromSecretKey(bs58.decode(privateKeyBase58));
-            
+
             log('Wallet public key: ' + this.wallet.publicKey.toBase58());
         } catch (error) {
             log("Failed to load wallet from private key: " + error.message);
             throw new Error("Invalid private key. Ensure it is a valid JSON array of numbers.");
         }
 
-        this.connection = new Connection(config.solana_rpc_endpoint || "https://api.mainnet-beta.solana.com", "confirmed");
+        // Use the provided connection
+        this.connection = connection;
         log(`Solana Trader initialized. Wallet public key: ${this.wallet.publicKey.toBase58()}`);
-        log(`Connected to Solana RPC: ${this.connection.rpcEndpoint}`);
     }
 
     async handlePurchase(tokenAddress, msg = null) {
@@ -58,8 +61,8 @@ class SolanaTrader {
         if (tokenState.hasPurchasedToken()) {
             const currentToken = tokenState.getPurchasedToken();
             log(`Cannot purchase ${tokenAddress}. Already holding token: ${currentToken.tokenAddress} since ${currentToken.purchaseTime}`, true);
-            return { 
-                success: false, 
+            return {
+                success: false,
                 message: `Already holding token: ${currentToken.tokenAddress}`,
                 currentToken: currentToken.tokenAddress,
                 purchaseTime: currentToken.purchaseTime
@@ -89,7 +92,7 @@ class SolanaTrader {
                 // Get quote from Jupiter
                 const quoteUrl = `${JUPITER_API_BASE}/quote?inputMint=${SOL_MINT}&outputMint=${tokenAddress}&amount=${amountToSpendLamports}&slippageBps=${slippage_bps}`;
                 log(`Getting quote from: ${quoteUrl}`, true);
-                
+
                 const quoteResponse = await fetch(quoteUrl);
                 const quoteData = await quoteResponse.json();
 
@@ -102,13 +105,13 @@ class SolanaTrader {
                         await new Promise(resolve => setTimeout(resolve, 2000)); // wait before retrying
                         continue;
                     } else {
-                         return { success: false, message: `No swap routes found: ${quoteData.error || 'Unknown error'}` };
+                        return { success: false, message: `No swap routes found: ${quoteData.error || 'Unknown error'}` };
                     }
                 }
 
                 log(`Best route found with price impact: ${quoteData.priceImpactPct}%`, true);
                 log(`Expected output amount: ${quoteData.outAmount}`, true);
-                
+
                 // Get swap transaction with priority fee settings
                 const swapResponse = await fetch(`${JUPITER_API_BASE}/swap`, {
                     method: 'POST',
@@ -124,12 +127,12 @@ class SolanaTrader {
                         wrapAndUnwrapSol: true,
                     })
                 });
-                
+
                 const { swapTransaction } = await swapResponse.json();
-                
+
                 if (!swapTransaction) {
                     log('Failed to get swap transaction', true);
-                     if (attempt <= maxRetries) {
+                    if (attempt <= maxRetries) {
                         await new Promise(resolve => setTimeout(resolve, 2000)); // wait before retrying
                         continue;
                     } else {
@@ -156,9 +159,9 @@ class SolanaTrader {
                     skipPreflight: true,
                     maxRetries: 2
                 });
-                
+
                 log(`Transaction sent with signature: ${signature}`, true);
-                
+
                 // Wait for confirmation using the proper method from Jupiter docs
                 const confirmation = await this.connection.confirmTransaction({
                     blockhash: latestBlockHash.blockhash,
@@ -171,12 +174,12 @@ class SolanaTrader {
                 // Check if transaction actually succeeded
                 if (confirmation.value.err) {
                     log(`Purchase transaction failed with error: ${JSON.stringify(confirmation.value.err)}`, true);
-                     if (attempt <= maxRetries) {
+                    if (attempt <= maxRetries) {
                         await new Promise(resolve => setTimeout(resolve, 2000)); // wait before retrying
                         continue;
                     } else {
-                        return { 
-                            success: false, 
+                        return {
+                            success: false,
                             message: `Purchase transaction failed: ${JSON.stringify(confirmation.value.err)}`,
                             txid: signature,
                             error: confirmation.value.err
@@ -186,7 +189,7 @@ class SolanaTrader {
 
                 log(`Swap successful! Transaction signature: ${signature}`, true);
                 log(`View transaction: https://solscan.io/tx/${signature}`, true);
-                
+
                 // Get initial price for tracking
                 const initialPrice = await getTokenPrice(tokenAddress, this.connection);
 
@@ -194,11 +197,11 @@ class SolanaTrader {
                 const actualBalance = await this.getTokenBalance(tokenAddress);
                 log(`Expected token amount: ${quoteData.outAmount}`, true);
                 log(`Actual token balance after purchase: ${actualBalance}`, true);
-                
+
                 // Record the purchase
                 const purchaseTime = new Date();
                 const messageTime = msg && msg.date ? new Date(msg.date * 1000) : purchaseTime;
-                
+
                 const purchasedTokenData = {
                     tokenAddress,
                     purchaseTime: purchaseTime.toISOString(),
@@ -209,29 +212,26 @@ class SolanaTrader {
                     pricePerTokenUSD: initialPrice
                 };
                 tokenState.setPurchasedToken(purchasedTokenData);
-                
+
                 // Initialize price history with purchase price
                 tokenState.setPriceHistory([{
                     timestamp: purchaseTime.toISOString(),
                     price: initialPrice
                 }]);
-                
+
                 log(`Token ${tokenAddress} purchased at ${purchaseTime.toISOString()}`, true);
                 log(`Message received at: ${messageTime.toISOString()}`, true);
                 log(`Purchase price: $${initialPrice} USD per token`, true);
-                
-                return { 
-                    success: true, 
+
+                return {
+                    success: true,
                     message: `Successfully purchased ${tokenAddress}`,
-                    purchaseTime: purchaseTime.toISOString(),
-                    txid: signature,
-                    outAmount: quoteData.outAmount
                 };
 
             } catch (error) {
                 log(`Error during purchase attempt ${attempt} for ${tokenAddress}: ${error.message || error.toString() || JSON.stringify(error)}`, true);
                 log(`Full error object on attempt ${attempt}: ${JSON.stringify(error, null, 2)}`, true);
-                
+
                 // Check if this is a timeout error but transaction might have succeeded
                 const isTimeoutError = error.message && (
                     error.message.includes('block height exceeded') ||
@@ -239,25 +239,25 @@ class SolanaTrader {
                     error.message.includes('timeout') ||
                     error.message.includes('Transaction was not confirmed')
                 );
-                
+
                 if (isTimeoutError && error.signature) {
                     log(`Timeout error detected, verifying if transaction actually succeeded...`, true);
-                    
+
                     // Wait a moment for the transaction to settle
                     await new Promise(resolve => setTimeout(resolve, 3000));
-                    
+
                     const verification = await this.verifyTransactionSuccess(error.signature, tokenAddress, 0);
-                    
+
                     if (verification.success) {
                         log(`Transaction actually succeeded despite timeout! Treating as successful purchase.`, true);
-                        
+
                         // Get initial price for tracking
                         const initialPrice = await getTokenPrice(tokenAddress, this.connection);
-                        
+
                         // Record the purchase
                         const purchaseTime = new Date();
                         const messageTime = msg && msg.date ? new Date(msg.date * 1000) : purchaseTime;
-                        
+
                         const purchasedTokenData = {
                             tokenAddress,
                             purchaseTime: purchaseTime.toISOString(),
@@ -266,32 +266,30 @@ class SolanaTrader {
                             tokenAmount: verification.actualBalance,
                             solAmount: purchase_amount_sol
                         };
+
                         tokenState.setPurchasedToken(purchasedTokenData);
-                        
+
                         // Initialize price history with purchase price
                         tokenState.setPriceHistory([{
                             timestamp: purchaseTime.toISOString(),
                             price: initialPrice
                         }]);
-                        
+
                         log(`Token ${tokenAddress} purchased at ${purchaseTime.toISOString()} (verified after timeout)`, true);
                         log(`View transaction: https://solscan.io/tx/${error.signature}`, true);
-                        
-                        return { 
-                            success: true, 
+
+                        return {
+                            success: true,
                             message: `Successfully purchased ${tokenAddress} (verified after timeout)`,
-                            purchaseTime: purchaseTime.toISOString(),
-                            txid: error.signature,
-                            outAmount: verification.actualBalance
                         };
                     }
                 }
-                
+
                 if (attempt > maxRetries) {
                     log(`All ${maxRetries + 1} purchase attempts failed for ${tokenAddress}.`, true);
-                    return { 
-                        success: false, 
-                        message: `Purchase failed for ${tokenAddress}: ${error.message || error.toString() || 'Unknown error'}` 
+                    return {
+                        success: false,
+                        message: `Purchase failed for ${tokenAddress}: ${error.message || error.toString() || 'Unknown error'}`
                     };
                 }
 
@@ -299,9 +297,9 @@ class SolanaTrader {
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
         }
-        return { 
-            success: false, 
-            message: `Purchase failed for ${tokenAddress} after all retries.` 
+        return {
+            success: false,
+            message: `Purchase failed for ${tokenAddress} after all retries.`
         };
     }
 
@@ -312,18 +310,18 @@ class SolanaTrader {
                 this.wallet.publicKey,
                 { mint: new PublicKey(tokenAddress) }
             );
-            
+
             if (tokenAccounts.value.length === 0) {
                 log(`No token accounts found for ${tokenAddress}`, true);
                 return 0;
             }
-            
+
             let totalBalance = 0;
             for (const account of tokenAccounts.value) {
                 const balance = account.account.data.parsed.info.tokenAmount.amount;
                 totalBalance += parseInt(balance);
             }
-            
+
             log(`Current wallet balance for ${tokenAddress}: ${totalBalance}`, true);
             return totalBalance;
         } catch (error) {
@@ -346,18 +344,18 @@ class SolanaTrader {
         try {
             // Get the current actual token balance (sell ALL tokens we have)
             const currentTokenBalance = await this.getTokenBalance(tokenAddress);
-            
+
             if (currentTokenBalance === 0) {
                 log(`No tokens found in wallet for ${tokenAddress}. Nothing to sell.`, true);
                 return { success: false, message: "No tokens found in wallet" };
             }
-            
+
             log(`Current token balance: ${currentTokenBalance}, selling ALL tokens`, true);
 
             // Get quote for selling ALL tokens back to SOL
             const quoteUrl = `${JUPITER_API_BASE}/quote?inputMint=${tokenAddress}&outputMint=${SOL_MINT}&amount=${currentTokenBalance}&slippageBps=${slippage_bps}`;
             log(`Getting sell quote from: ${quoteUrl}`, true);
-            
+
             const quoteResponse = await fetch(quoteUrl);
             const quoteData = await quoteResponse.json();
 
@@ -393,9 +391,9 @@ class SolanaTrader {
                     }
                 })
             });
-            
+
             const { swapTransaction } = await swapResponse.json();
-            
+
             if (!swapTransaction) {
                 log('Failed to get sell swap transaction', true);
                 return { success: false, message: "Failed to get sell swap transaction" };
@@ -420,9 +418,9 @@ class SolanaTrader {
                 skipPreflight: true,
                 maxRetries: 2
             });
-            
+
             log(`Sell transaction sent with signature: ${signature}`, true);
-            
+
             // Wait for confirmation using the proper method from Jupiter docs
             const confirmation = await this.connection.confirmTransaction({
                 blockhash: latestBlockHash.blockhash,
@@ -435,8 +433,8 @@ class SolanaTrader {
             // Check if transaction actually succeeded
             if (confirmation.value.err) {
                 log(`Sell transaction failed with error: ${JSON.stringify(confirmation.value.err)}`, true);
-                return { 
-                    success: false, 
+                return {
+                    success: false,
                     message: `Sell transaction failed: ${JSON.stringify(confirmation.value.err)}`,
                     txid: signature,
                     error: confirmation.value.err
@@ -451,16 +449,16 @@ class SolanaTrader {
             log(`Sell successful! Transaction signature: ${signature}`, true);
             log(`SOL received: ${solReceived}, Profit: ${profit} SOL (${profitPercent.toFixed(2)}%)`, true);
             log(`View transaction: https://solscan.io/tx/${signature}`, true);
-            
+
             // Add to in-memory sold tokens list to prevent re-buying during this session
             tokenState.addToSoldTokens(tokenAddress);
             log(`Added ${tokenAddress} to the session's sold tokens list. It will not be purchased again.`, true);
-            
+
             // Remove from tracking only if transaction was successful
             tokenState.clearPurchasedToken();
-            
-            return { 
-                success: true, 
+
+            return {
+                success: true,
                 message: `Successfully sold ${tokenAddress}`,
                 txid: signature,
                 solReceived,
@@ -471,9 +469,9 @@ class SolanaTrader {
 
         } catch (error) {
             log(`Error during sell of ${tokenAddress}: ${error.message || error.toString() || JSON.stringify(error)}`, true);
-            return { 
-                success: false, 
-                message: `Sell failed for ${tokenAddress}: ${error.message || error.toString() || 'Unknown error'}` 
+            return {
+                success: false,
+                message: `Sell failed for ${tokenAddress}: ${error.message || error.toString() || 'Unknown error'}`
             };
         }
     }
@@ -481,16 +479,16 @@ class SolanaTrader {
     async verifyTransactionSuccess(signature, tokenAddress, expectedMinAmount = 0) {
         try {
             log(`Verifying transaction success for signature: ${signature}`, true);
-            
+
             // Get transaction details from RPC
             const txDetails = await this.connection.getTransaction(signature, {
                 commitment: 'confirmed',
                 maxSupportedTransactionVersion: 0
             });
-            
+
             if (txDetails && !txDetails.meta.err) {
                 log(`Transaction ${signature} was successful on-chain`, true);
-                
+
                 // Also check if we received the tokens
                 const actualBalance = await this.getTokenBalance(tokenAddress);
                 if (actualBalance > expectedMinAmount) {
@@ -498,7 +496,7 @@ class SolanaTrader {
                     return { success: true, actualBalance };
                 }
             }
-            
+
             return { success: false };
         } catch (error) {
             log(`Error verifying transaction: ${error.message}`, true);

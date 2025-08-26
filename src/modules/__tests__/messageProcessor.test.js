@@ -1,4 +1,4 @@
-const { extractSolanaAddresses, isValidSolanaAddress } = require('../messageProcessor');
+const { extractSolanaAddresses } = require('../messageProcessor');
 const { processMessage } = require('../messageProcessor');
 
 // Mock the telegramListener module
@@ -65,7 +65,7 @@ describe('processMessage', () => {
         // Clear all mocks before each test
         jest.clearAllMocks();
         // Mock console.log to keep test output clean
-        jest.spyOn(console, 'log').mockImplementation(() => {});
+        jest.spyOn(console, 'log').mockImplementation(() => { });
         // Use fake timers
         jest.useFakeTimers();
     });
@@ -108,18 +108,14 @@ describe('processMessage', () => {
             message_id: 1
         };
 
-        // Mock getLastMessage to return a message with the same address
-        getLastMessage.mockResolvedValue({
-            text: `Buy token ${address}`,
-            chat: { id: '123', title: 'Test Channel' },
-            message_id: 2
-        });
+        // Mock getLastMessage to return an array of message texts with the same address
+        getLastMessage.mockResolvedValue([`Buy token ${address}`]);
 
         const processPromise = processMessage(msg);
-        
-        // Fast-forward timers to skip the 30-second wait
-        jest.advanceTimersByTime(30000);
-        
+
+        // Fast-forward timers to skip the 20-second wait (as per messageProcessor.js line 75)
+        jest.advanceTimersByTime(20000);
+
         const result = await processPromise;
         expect(getLastMessage).toHaveBeenCalledWith('Test Channel');
         expect(result).toBe(address);
@@ -128,25 +124,21 @@ describe('processMessage', () => {
     it('should return null if last message has different address', async () => {
         const originalAddress = 'DyBbW4tJ1DEPjbWqGdd4esr8Qq3JYC3TUsf1WJ5Tpump';
         const newAddress = '335SEGfUMycHTdPxV3LSM6rLHDMmVEeus7thohK4pump';
-        
+
         const msg = {
             text: `Buy token ${originalAddress}`,
             chat: { id: '123', title: 'Test Channel' },
             message_id: 1
         };
 
-        // Mock getLastMessage to return a message with a different address
-        getLastMessage.mockResolvedValue({
-            text: `Buy token ${newAddress}`,
-            chat: { id: '123', title: 'Test Channel' },
-            message_id: 2
-        });
+        // Mock getLastMessage to return an array of message texts with a different address
+        getLastMessage.mockResolvedValue([`Buy token ${newAddress}`]);
 
         const processPromise = processMessage(msg);
-        
+
         // Fast-forward timers to skip the 30-second wait
-        jest.advanceTimersByTime(30000);
-        
+        jest.advanceTimersByTime(20000);
+
         const result = await processPromise;
         expect(getLastMessage).toHaveBeenCalledWith('Test Channel');
         expect(result).toBeNull();
@@ -164,16 +156,16 @@ describe('processMessage', () => {
         getLastMessage.mockResolvedValue(null);
 
         const processPromise = processMessage(msg);
-        
-        // Fast-forward timers to skip the 30-second wait
-        jest.advanceTimersByTime(30000);
-        
+
+        // Fast-forward timers to skip the 20-second wait (as per messageProcessor.js line 75)
+        jest.advanceTimersByTime(20000);
+
         const result = await processPromise;
         expect(getLastMessage).toHaveBeenCalledWith('Test Channel');
         expect(result).toBeNull();
     });
 
-    it('should return address from dexscreener URL if last message matches', async () => {
+    it('should return null for dexscreener URL (filtered out)', async () => {
         const address = 'DyBbW4tJ1DEPjbWqGdd4esr8Qq3JYC3TUsf1WJ5Tpump';
         const msg = {
             text: `Check this token: https://dexscreener.com/solana/${address}`,
@@ -181,20 +173,8 @@ describe('processMessage', () => {
             message_id: 1
         };
 
-        // Mock getLastMessage to return a message with the same address
-        getLastMessage.mockResolvedValue({
-            text: `Check this token: https://dexscreener.com/solana/${address}`,
-            chat: { id: '123', title: 'Test Channel' },
-            message_id: 2
-        });
-
-        const processPromise = processMessage(msg);
-        
-        // Fast-forward timers to skip the 30-second wait
-        jest.advanceTimersByTime(30000);
-        
-        const result = await processPromise;
-        expect(getLastMessage).toHaveBeenCalledWith('Test Channel');
-        expect(result).toBe(address);
+        const result = await processMessage(msg);
+        expect(getLastMessage).not.toHaveBeenCalled();
+        expect(result).toBeNull();
     });
-}); 
+});
