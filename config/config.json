@@ -5,14 +5,14 @@
     "slippage_bps": 2000, 
     "compute_unit_price_micro_lamports": 500000,
     "compute_unit_limit": 200000,
-    "purchase_amount_sol": 0.5,
+    "purchase_amount_sol": 0.4,
     "take_profit_percentage": 70
   },
   "logging": {
     "show_timestamps": true
   },
   "excluded_tokens": [
-    "12Z5CsL5kCPRmnLQcwpY2QrEub3MahHCtRHxoQEdpump",
+    "ygPRx1SuXQLqnrFTp2LWKQ8SJZv75Pq7vuXtiDjpump",
     "6t3sDWZtYoFq8LCxBf8dix8BDV776TQN2WBSWLEpump",
     "13RbxjgWhXhgSN4krVwadunLSAJjph7b9QFU4GWEpump"
   ]
