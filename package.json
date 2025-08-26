@@ -8,7 +8,8 @@
     "test-telegram": "node src/modules/test-telegram.js",
     "logs:show": "cat logs/bot-activity.log",
     "logs:delete": "rm -f logs/*.log || true",
-    "restart": "pm2 restart solana-telegram-bot"
+    "restart": "pm2 restart solana-telegram-bot",
+    "auth:telegram": "node src/createTelegramConnection.js"
   },
   "keywords": [],
   "author": "",
