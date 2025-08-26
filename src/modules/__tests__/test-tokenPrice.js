@@ -1,5 +1,6 @@
 require("dotenv").config({ path: "../../../.env" });
-const SolanaTrader = require("../solanaTrader");
+const { Connection } = require("@solana/web3.js");
+const { getTokenPrice } = require("../../utils/utils");
 const { log } = require("../../utils/logger");
 
 const tokenAddress = "J7gaM1P2fVpivP9sRpyno8j6SGwUSffTADnWFQvqpump";
@@ -8,10 +9,10 @@ async function testHandleTokenPrice() {
     log("Testing FIXED getTokenPrice function...");
 
     try {
-        const solanaTrader = new SolanaTrader(process.env.SOLANA_WALLET_PRIVATE_KEY);
+        const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
         
         log("Getting price with decimal correction...");
-        const price = await solanaTrader.getTokenPrice(tokenAddress);
+        const price = await getTokenPrice(tokenAddress, connection);
         
         log(`Function returned: $${price}`);
 

@@ -37,10 +37,6 @@ async function main() {
         // Initialize Solana Trader
         const solanaTrader = new SolanaTrader(process.env.SOLANA_WALLET_PRIVATE_KEY);
 
-        // Start token monitoring
-        await solanaTrader.startTokenMonitoring();
-        log("Token monitoring started successfully");
-
         log("Initializing Telegram message handler...");
         
         // Set the message handler in the Telegram listener
@@ -51,6 +47,9 @@ async function main() {
 
                 if (address !== null) {
                     log(`Message for ${address} verified. Proceeding to trading module.`);
+                    // Start token monitoring
+                    await solanaTrader.startTokenMonitoring();
+                    log("Token monitoring started successfully");
                     await solanaTrader.handlePurchase(address, msg);
                 }                
 

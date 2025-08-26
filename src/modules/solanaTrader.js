@@ -4,8 +4,9 @@ const fetch = require('cross-fetch');
 const bs58 = require("bs58");
 const fs = require("fs");
 const path = require("path");
-const { convertPrivateKeyToBase58 } = require("../utils/utils");
+const { convertPrivateKeyToBase58, getTokenPrice } = require("../utils/utils");
 const { log } = require("../utils/logger");
+const { SOL_MINT, JUPITER_API_BASE, PRICE_CHECK_INTERVAL } = require("../utils/consts");
 
 // Load config
 const configPath = path.resolve(__dirname, "../../config/config.json");
@@ -17,10 +18,6 @@ let priceHistory = []; // Array of {timestamp, price} objects for the current to
 let sold_tokens = []; // In-memory list of sold tokens for this session
 let lastLogTime = 0;
 
-// Constants
-const SOL_MINT = 'So11111111111111111111111111111111111111112'; // Wrapped SOL mint address
-const JUPITER_API_BASE = 'https://quote-api.jup.ag/v6';
-const PRICE_CHECK_INTERVAL = 10000; // 10 seconds
 
 class SolanaTrader {
     constructor(privateKey) {
@@ -197,7 +194,7 @@ class SolanaTrader {
                 log(`View transaction: https://solscan.io/tx/${signature}`, true);
                 
                 // Get initial price for tracking
-                const initialPrice = await this.getTokenPrice(tokenAddress);
+                const initialPrice = await getTokenPrice(tokenAddress, this.connection);
 
                 // Check actual received amount vs expected
                 const actualBalance = await this.getTokenBalance(tokenAddress);
@@ -260,7 +257,7 @@ class SolanaTrader {
                         log(`Transaction actually succeeded despite timeout! Treating as successful purchase.`, true);
                         
                         // Get initial price for tracking
-                        const initialPrice = await this.getTokenPrice(tokenAddress);
+                        const initialPrice = await getTokenPrice(tokenAddress, this.connection);
                         
                         // Record the purchase
                         const purchaseTime = new Date();
@@ -487,39 +484,7 @@ class SolanaTrader {
         }
     }
 
-    async getTokenPrice(tokenAddress) {
-        try {
-            // Get token decimals first
-            const mintInfo = await this.connection.getParsedAccountInfo(new PublicKey(tokenAddress));
-            let decimals = 9; // Default
-            if (mintInfo.value && mintInfo.value.data.parsed) {
-                decimals = mintInfo.value.data.parsed.info.decimals;
-            }
-            
-            // Use same small amount as actual trades (0.001 SOL) to get realistic pricing
-            const smallAmountLamports = 1000000; // 0.001 SOL = 1,000,000 lamports
-            const quoteUrl = `${JUPITER_API_BASE}/quote?inputMint=${SOL_MINT}&outputMint=${tokenAddress}&amount=${smallAmountLamports}&slippageBps=300`;
-            
-            const response = await fetch(quoteUrl);
-            const data = await response.json();
-            
-            if (data.outAmount && data.swapUsdValue) {
-                // Convert raw token amount to actual tokens considering decimals
-                const tokensReceivedActual = parseFloat(data.outAmount) / Math.pow(10, decimals);
-                
-                // Calculate price per token: USD value / actual tokens received
-                const pricePerToken = parseFloat(data.swapUsdValue) / tokensReceivedActual;
-                log(`Price calculated from Jupiter quote (0.001 SOL, ${decimals} decimals): $${pricePerToken.toFixed(8)} USD per token`);
-                return pricePerToken.toFixed(10);
-            }
-            
-            log(`No price data found for ${tokenAddress} from Jupiter`);
-            return 0;
-        } catch (error) {
-            log(`Error getting price for ${tokenAddress}: ${error.message}`);
-            return 0;
-        }
-    }
+
 
     getPriceAtTime(minutesAgo) {
         if (priceHistory.length === 0) {
@@ -592,7 +557,7 @@ class SolanaTrader {
         setInterval(async () => {
             try {
                 if (purchasedToken) {
-                    const currentPrice = await this.getTokenPrice(purchasedToken.tokenAddress);
+                    const currentPrice = await getTokenPrice(purchasedToken.tokenAddress, this.connection);
 
                     const currentTime = Date.now();
                     if (currentTime - (lastLogTime || 0) > 120000) { // Log every 2 minutes
