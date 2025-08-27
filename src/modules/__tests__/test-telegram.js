@@ -1,4 +1,4 @@
- 
+
 require('dotenv').config();
 const { TelegramClient } = require('telegram');
 const { StringSession } = require('telegram/sessions');
@@ -33,7 +33,7 @@ async function main() {
     try {
         // Set timeout for connection
         const connectionPromise = client.connect();
-        const timeoutPromise = new Promise((_, reject) =>  
+        const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Connection timeout after 30 seconds')), 30000)
         );
 
