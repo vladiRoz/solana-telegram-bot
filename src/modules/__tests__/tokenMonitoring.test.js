@@ -50,7 +50,7 @@ describe('TokenMonitoring', () => {
     jest.useFakeTimers();
 
     // Reset global mocks and setup interval callback capture
-    global.setInterval = jest.fn((callback, interval) => {
+    global.setInterval = jest.fn((callback) => {
       intervalCallback = callback;
       return 'mockIntervalId';
     });

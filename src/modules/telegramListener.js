@@ -13,12 +13,11 @@ const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 // Function to be called by index.js to pass the message handler
 let messageHandlerCallback = null;
 let client = null;
-let isAuthenticated = false;
 
 // Config values from .env
 const apiId = parseInt(process.env.TELEGRAM_APP_API_ID || '0');
 const apiHash = process.env.TELEGRAM_APP_API_HASH || '';
-let stringSession = new StringSession(process.env.TELEGRAM_STRING_SESSION || '');
+const stringSession = new StringSession(process.env.TELEGRAM_STRING_SESSION || '');
 
 if (!apiId || !apiHash) {
     log('Error: TELEGRAM_APP_API_ID and TELEGRAM_APP_API_HASH must be defined in .env file');
@@ -58,10 +57,10 @@ async function startClient() {
         // Set timeout for initial connection
         log('Attempting to connect to Telegram servers...');
         const connectionPromise = client.connect();
-        const timeoutPromise = new Promise((_, reject) => 
+        const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Connection timeout after 30 seconds')), 30000)
         );
-        
+
         try {
             await Promise.race([connectionPromise, timeoutPromise]);
             log('Initial connection successful');
@@ -85,10 +84,8 @@ async function startClient() {
             log('Authentication successful!');
             log('Please add this to your .env file as TELEGRAM_STRING_SESSION:');
             log(sessionString);
-            isAuthenticated = true;
         } else {
             log('Using existing session, connecting...');
-            isAuthenticated = true;
             log('Connection successful!');
         }
 
@@ -125,12 +122,12 @@ function setupMessageHandler() {
                     log('Skipping: No message in event');
                     return;
                 }
-                
+
                 if (!message.peerId) {
                     log('Skipping: No peerId in message');
                     return;
                 }
-                
+
                 try {
                     // Get the chat entity from peerId
                     const chat = await client.getEntity(message.peerId);
@@ -139,14 +136,14 @@ function setupMessageHandler() {
                         log('Skipping: Could not retrieve chat entity');
                         return;
                     }
-                    
-                    const chatTitle = chat.title ||chat.firstName;
+
+                    const chatTitle = chat.title || chat.firstName;
                     const messageText = message.message || '';
-                    
+
                     // Check if this is a tracked channel
                     if (config.telegram_channels.includes(chatTitle)) {
                         log(`Message is from a tracked channel: ${chatTitle}`);
-                        
+
                         if (messageHandlerCallback && messageText) {
                             // Convert the message to a format compatible with the existing code
                             const formattedMsg = {
@@ -158,7 +155,7 @@ function setupMessageHandler() {
                                 text: messageText,
                                 date: message.date
                             };
-                            
+
                             messageHandlerCallback(formattedMsg);
                         } else {
                             log('Message handler not set or message empty.');
@@ -183,7 +180,7 @@ async function stopClient() {
         log('Client is not running');
         return;
     }
-    
+
     try {
         await client.disconnect();
         client = null;
@@ -215,7 +212,7 @@ async function getLastMessage(chatIdentifier) {
             // Get all dialogs (chats)
             const dialogs = await client.getDialogs();
             chat = dialogs.find(dialog => dialog.title === chatIdentifier);
-            
+
             if (!chat) {
                 log(`Could not find channel with title: ${chatIdentifier}`);
                 return null;

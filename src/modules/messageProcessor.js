@@ -13,14 +13,14 @@ const SOLANA_ADDRESS_LENGTH_MIN = 32;
 const SOLANA_ADDRESS_LENGTH_MAX = 44;
 
 function isValidSolanaAddress(address) {
-    if (!address || typeof address !== "string") return false;
-    if (address.length < SOLANA_ADDRESS_LENGTH_MIN || address.length > SOLANA_ADDRESS_LENGTH_MAX) return false;
-    
+    if (!address || typeof address !== "string") {return false;}
+    if (address.length < SOLANA_ADDRESS_LENGTH_MIN || address.length > SOLANA_ADDRESS_LENGTH_MAX) {return false;}
+
     // Special case for pump.fun addresses
     if (address.endsWith('pump')) {
         return true;
     }
-    
+
     try {
         bs58.decode(address); // Only check that it decodes without error
         return true;
@@ -30,7 +30,7 @@ function isValidSolanaAddress(address) {
 }
 
 function extractSolanaAddresses(messageText) {
-    if (!messageText || typeof messageText !== "string") return null;
+    if (!messageText || typeof messageText !== "string") {return null;}
 
     if (/dexscreener\.com/i.test(messageText)) {
         return null;
@@ -38,7 +38,7 @@ function extractSolanaAddresses(messageText) {
 
     // Look for any valid base58 address
     const base58Matches = messageText.match(SOLANA_ADDRESS_REGEX_BASE58);
-    
+
     if (base58Matches) {
         for (const addr of base58Matches) {
             if (isValidSolanaAddress(addr)) {
@@ -79,7 +79,7 @@ async function processMessage(msg) {
     log(`Re-verifying message ${messageId} in chat ${chatTitle} for address ${address}...`, true);
 
     const lastMessages = await getLastMessage(chatTitle);
-    
+
     if (!lastMessages) {
         log(`Could not retrieve last message from ${chatTitle}, skipping...`, true);
         return null;

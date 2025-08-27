@@ -19,7 +19,7 @@ let monitoringInterval = null;
  */
 function getPriceAtTime(minutesAgo) {
     const priceHistory = tokenState.getPriceHistory();
-    
+
     if (priceHistory.length === 0) {
         return 0;
     }
@@ -38,7 +38,7 @@ function getPriceAtTime(minutesAgo) {
     // Find the closest price entry to the target time
     let closest = priceHistory[0];
     let minDiff = Math.abs(new Date(closest.timestamp) - targetTime);
-    
+
     for (const entry of priceHistory) {
         const diff = Math.abs(new Date(entry.timestamp) - targetTime);
         if (diff < minDiff) {
@@ -46,7 +46,7 @@ function getPriceAtTime(minutesAgo) {
             closest = entry;
         }
     }
-    
+
     return closest.price;
 }
 
@@ -59,7 +59,7 @@ function getPriceAtTime(minutesAgo) {
 function decideSell(currentPrice, capital) {
     const purchasedToken = tokenState.getPurchasedToken();
     const priceHistory = tokenState.getPriceHistory();
-    
+
     if (!purchasedToken || priceHistory.length === 0) {
         return { sellAt: "no data", returnRate: 0, finalCapital: 0 };
     }
@@ -68,7 +68,7 @@ function decideSell(currentPrice, capital) {
     const price5m = getPriceAtTime(5);
     const price10m = getPriceAtTime(10);
     const price20m = getPriceAtTime(20);
-    
+
     // Calculate return rates compared to purchase price
     const purchasePrice = purchasedToken.purchasePrice;
     const r5 = price5m > 0 ? currentPrice / price5m : 0;
@@ -94,91 +94,108 @@ function decideSell(currentPrice, capital) {
 }
 
 /**
+ * Executes a single monitoring cycle to check token price and determine actions
+ * @param {Connection} connection - Solana connection object
+ * @returns {Promise<Object|null>} Action object with type and data, or null if no action needed
+ */
+async function executeMonitoringCycle(connection) {
+    try {
+        // Monitoring cycle
+        const purchasedToken = tokenState.getPurchasedToken();
+
+        if (!purchasedToken) {
+            return null;
+        }
+
+        const currentPrice = await getTokenPrice(purchasedToken.tokenAddress, connection);
+
+        const currentTime = Date.now();
+        const lastLogTime = tokenState.getLastLogTime();
+
+        if (currentTime - (lastLogTime || 0) > 120000) { // Log every 2 minutes
+            log(`startTokenMonitoring - Current price: $${currentPrice} USD per token`, true);
+            tokenState.setLastLogTime(currentTime);
+        }
+
+        if (currentPrice === 0) {
+            return null;
+        }
+
+        // Add current price to history
+        const now = new Date(currentTime).toISOString();
+        tokenState.addPriceToHistory({
+            timestamp: now,
+            price: currentPrice
+        });
+
+        // Quick sell check: take profit percentage
+        const takeProfitRatio = 1 + (config.trading_settings.take_profit_percentage / 100);
+        const priceRatio = currentPrice / purchasedToken.purchasePrice;
+
+        if (priceRatio >= takeProfitRatio) {
+            const reason = `Take profit - ${config.trading_settings.take_profit_percentage}% gain`;
+            log(`Take profit triggered for ${purchasedToken.tokenAddress} - ${config.trading_settings.take_profit_percentage}%+ gain detected (${((priceRatio - 1) * 100).toFixed(2)}%)`, true);
+
+            return {
+                action: "SELL",
+                data: {
+                    tokenAddress: purchasedToken.tokenAddress,
+                    reason: reason,
+                    currentPrice: currentPrice,
+                    profitPercent: ((priceRatio - 1) * 100).toFixed(2)
+                }
+            };
+        }
+
+        // Strategic sell check using tracked price history
+        // const sellDecision = decideSell(currentPrice, purchasedToken.solAmount);
+
+        // if (sellDecision.sellAt !== "hold") {
+        //     const reason = `Strategic sell - ${sellDecision.sellAt}`;
+        //     log(`Strategic sell triggered for ${purchasedToken.tokenAddress} - ${sellDecision.sellAt} (${((sellDecision.returnRate - 1) * 100).toFixed(2)}% return)`, true);
+        //
+        //     return {
+        //         action: "SELL",
+        //         data: {
+        //             tokenAddress: purchasedToken.tokenAddress,
+        //             reason: reason,
+        //             currentPrice: currentPrice,
+        //             returnRate: sellDecision.returnRate
+        //         }
+        //     };
+        // }
+
+        // No action needed - continue monitoring
+        return {
+            action: "HOLD",
+            data: {
+                tokenAddress: purchasedToken.tokenAddress,
+                currentPrice: currentPrice
+            }
+        };
+    } catch (error) {
+        log(`Error in token monitoring: ${error.message}`, true);
+        return null;
+    }
+}
+
+/**
  * Starts token monitoring and returns action recommendations
  * @param {Connection} connection - Solana connection object
  * @param {Function} actionCallback - Callback function to handle actions (SELL, HOLD)
  */
 function startTokenMonitoring(connection, actionCallback) {
     log('Starting token monitoring...', true);
-    
+
     // Clear any existing interval
     if (monitoringInterval) {
         clearInterval(monitoringInterval);
     }
-    
+
     monitoringInterval = setInterval(async () => {
-        try {
-            const purchasedToken = tokenState.getPurchasedToken();
-            
-            if (purchasedToken) {
-                const currentPrice = await getTokenPrice(purchasedToken.tokenAddress, connection);
-
-                const currentTime = Date.now();
-                const lastLogTime = tokenState.getLastLogTime();
-                
-                if (currentTime - (lastLogTime || 0) > 120000) { // Log every 2 minutes
-                    log(`startTokenMonitoring - Current price: $${currentPrice} USD per token`, true);
-                    tokenState.setLastLogTime(currentTime);
-                }
-                
-                if (currentPrice === 0) return;
-
-                // Add current price to history
-                const now = new Date(currentTime).toISOString();
-                tokenState.addPriceToHistory({
-                    timestamp: now,
-                    price: currentPrice
-                });
-
-                // Quick sell check: take profit percentage
-                const takeProfitRatio = 1 + (config.trading_settings.take_profit_percentage / 100);
-                const priceRatio = currentPrice / purchasedToken.purchasePrice;
-                
-                if (priceRatio >= takeProfitRatio) {
-                    const reason = `Take profit - ${config.trading_settings.take_profit_percentage}% gain`;
-                    log(`Take profit triggered for ${purchasedToken.tokenAddress} - ${config.trading_settings.take_profit_percentage}%+ gain detected (${((priceRatio - 1) * 100).toFixed(2)}%)`, true);
-                    
-                    // Call the action callback with SELL action
-                    if (actionCallback) {
-                        actionCallback("SELL", {
-                            tokenAddress: purchasedToken.tokenAddress,
-                            reason: reason,
-                            currentPrice: currentPrice,
-                            profitPercent: ((priceRatio - 1) * 100).toFixed(2)
-                        });
-                    }
-                    return;
-                }
-
-                // Strategic sell check using tracked price history
-                // const sellDecision = decideSell(currentPrice, purchasedToken.solAmount);
-                
-                // if (sellDecision.sellAt !== "hold") {
-                //     const reason = `Strategic sell - ${sellDecision.sellAt}`;
-                //     log(`Strategic sell triggered for ${purchasedToken.tokenAddress} - ${sellDecision.sellAt} (${((sellDecision.returnRate - 1) * 100).toFixed(2)}% return)`, true);
-                //     
-                //     // Call the action callback with SELL action
-                //     if (actionCallback) {
-                //         actionCallback("SELL", {
-                //             tokenAddress: purchasedToken.tokenAddress,
-                //             reason: reason,
-                //             currentPrice: currentPrice,
-                //             returnRate: sellDecision.returnRate
-                //         });
-                //     }
-                //     return;
-                // }
-                
-                // No action needed - continue monitoring
-                if (actionCallback) {
-                    actionCallback("HOLD", {
-                        tokenAddress: purchasedToken.tokenAddress,
-                        currentPrice: currentPrice
-                    });
-                }
-            }
-        } catch (error) {
-            log(`Error in token monitoring: ${error.message}`, true);
+        const result = await executeMonitoringCycle(connection);
+        if (result && actionCallback) {
+            actionCallback(result.action, result.data);
         }
     }, PRICE_CHECK_INTERVAL);
 }
@@ -197,6 +214,7 @@ function stopTokenMonitoring() {
 module.exports = {
     startTokenMonitoring,
     stopTokenMonitoring,
+    executeMonitoringCycle,
     getPriceAtTime,
     decideSell
 };

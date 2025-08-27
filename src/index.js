@@ -12,7 +12,17 @@ const { log } = require("./utils/logger");
 const configPath = path.resolve(__dirname, "../config/config.json"); // Adjusted path for src directory
 const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 
-async function main() {
+/**
+ * Initialize and start the trading bot application
+ * @param {Object} options - Optional configuration overrides for testing
+ * @param {Object} options.config - Configuration object override
+ * @param {Object} options.connection - Solana connection override
+ * @param {Object} options.solanaTrader - SolanaTrader instance override
+ * @returns {Promise<Object>} - Returns initialized components for testing
+ */
+async function initializeApplication(options = {}) {
+    const appConfig = options.config || config;
+
     log("Starting application...");
 
     // Validate essential configurations
@@ -24,7 +34,7 @@ async function main() {
         log("Error: TELEGRAM_APP_API_HASH is not defined in .env file.");
         process.exit(1);
     }
-    if (!config.telegram_channels || config.telegram_channels.length === 0) {
+    if (!appConfig.telegram_channels || appConfig.telegram_channels.length === 0) {
         log("Error: No telegram_channels specified in config/config.json.");
         process.exit(1);
     }
@@ -36,13 +46,13 @@ async function main() {
             process.exit(1);
         }
 
-        const connection = new Connection(config.solana_rpc_endpoint || "https://api.mainnet-beta.solana.com", "confirmed");
+        const connection = options.connection || new Connection(appConfig.solana_rpc_endpoint || "https://api.mainnet-beta.solana.com", "confirmed");
         log(`Connected to Solana RPC: ${connection.rpcEndpoint}`);
 
-        const solanaTrader = new SolanaTrader(process.env.SOLANA_WALLET_PRIVATE_KEY, connection);
+        const solanaTrader = options.solanaTrader || new SolanaTrader(process.env.SOLANA_WALLET_PRIVATE_KEY, connection);
 
         log("Initializing Telegram message handler...");
-        
+
         // Set the message handler in the Telegram listener
         // The listener will call this function for messages from tracked channels
         setMessageHandler(async (msg) => {
@@ -60,7 +70,7 @@ async function main() {
                                 if (action === "SELL") {
                                     log(`Monitoring triggered SELL action for ${actionData.tokenAddress}: ${actionData.reason}`, true);
                                     const sellResult = await solanaTrader.handleSell(actionData.tokenAddress, actionData.reason);
-                                    
+
                                     if (sellResult.success) {
                                         log(`Sell completed successfully: ${sellResult.message}`, true);
                                     } else {
@@ -72,7 +82,7 @@ async function main() {
                             }
                         });
                     }
-                }                
+                }
 
             } catch (error) {
                 log("Error processing message in main handler: " + error);
@@ -83,12 +93,23 @@ async function main() {
         await startClient();
 
         log("Application started successfully. Listening for Telegram messages...");
-        log(`Tracking channels: ${config.telegram_channels.join(", ")}`);
+        log(`Tracking channels: ${appConfig.telegram_channels.join(", ")}`);
+
+        // Return components for testing purposes
+        return {
+            connection,
+            solanaTrader,
+            config: appConfig
+        };
 
     } catch (error) {
         log("Failed to initialize the application: " + error);
         process.exit(1);
     }
+}
+
+async function main() {
+    await initializeApplication();
 }
 
 // Ensure proper cleanup on exit
@@ -106,9 +127,17 @@ process.on("SIGTERM", async () => {
     process.exit(0);
 });
 
-// Start the application
-main().catch(error => {
-    log("Unhandled error in main execution: " + error);
-    process.exit(1);
-});
+// Start the application only if this file is run directly (not required as a module)
+if (require.main === module) {
+    main().catch(error => {
+        log("Unhandled error in main execution: " + error);
+        process.exit(1);
+    });
+}
+
+// Export for testing
+module.exports = {
+    initializeApplication,
+    main
+};
 

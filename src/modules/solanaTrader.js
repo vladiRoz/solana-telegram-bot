@@ -339,7 +339,7 @@ class SolanaTrader {
             return { success: false, message: "Token not found in purchase records" };
         }
 
-        const { slippage_bps, compute_unit_price_micro_lamports, compute_unit_limit } = config.trading_settings;
+        const { slippage_bps } = config.trading_settings;
 
         try {
             // Get the current actual token balance (sell ALL tokens we have)
