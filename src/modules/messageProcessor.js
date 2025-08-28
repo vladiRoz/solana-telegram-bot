@@ -13,8 +13,8 @@ const SOLANA_ADDRESS_LENGTH_MIN = 32;
 const SOLANA_ADDRESS_LENGTH_MAX = 44;
 
 function isValidSolanaAddress(address) {
-    if (!address || typeof address !== "string") {return false;}
-    if (address.length < SOLANA_ADDRESS_LENGTH_MIN || address.length > SOLANA_ADDRESS_LENGTH_MAX) {return false;}
+    if (!address || typeof address !== "string") { return false; }
+    if (address.length < SOLANA_ADDRESS_LENGTH_MIN || address.length > SOLANA_ADDRESS_LENGTH_MAX) { return false; }
 
     // Special case for pump.fun addresses
     if (address.endsWith('pump')) {
@@ -30,7 +30,7 @@ function isValidSolanaAddress(address) {
 }
 
 function extractSolanaAddresses(messageText) {
-    if (!messageText || typeof messageText !== "string") {return null;}
+    if (!messageText || typeof messageText !== "string") { return null; }
 
     if (/dexscreener\.com/i.test(messageText)) {
         return null;
@@ -72,7 +72,7 @@ async function processMessage(msg) {
 
     // 1. Wait 30 seconds
     log(`Waiting 30 seconds before re-verifying message for address ${address}...`, true);
-    await new Promise(resolve => setTimeout(resolve, 20000)); // 30 seconds
+    await new Promise(resolve => setTimeout(resolve, 5000)); // 30 seconds
     log('-----------------------------------------------------------------', true);
 
     // 2. Verify message still exists using getLastMessage
