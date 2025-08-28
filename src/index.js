@@ -51,7 +51,7 @@ async function initializeApplication(options = {}) {
 
         const solanaTrader = options.solanaTrader || new SolanaTrader(process.env.SOLANA_WALLET_PRIVATE_KEY, connection);
 
-        log("Initializing Telegram message handler...");
+        log("Initializing Telegram message handler...", true);
 
         // Set the message handler in the Telegram listener
         // The listener will call this function for messages from tracked channels
@@ -60,7 +60,7 @@ async function initializeApplication(options = {}) {
                 const address = await processMessage(msg);
 
                 if (address !== null) {
-                    log(`Message for ${address} verified. Proceeding to trading module.`);
+                    log(`Message for ${address} verified. Proceeding to trading module.`, true);
                     const purchaseResult = await solanaTrader.handlePurchase(address, msg);
                     if (purchaseResult.success) {
                         log("Starting token monitoring", true);
@@ -73,8 +73,15 @@ async function initializeApplication(options = {}) {
 
                                     if (sellResult.success) {
                                         log(`Sell completed successfully: ${sellResult.message}`, true);
+                                        stopTokenMonitoring();
                                     } else {
                                         log(`Sell failed: ${sellResult.message}`, true);
+
+                                        // Stop monitoring if tokens were manually sold (not in wallet)
+                                        if (sellResult.message === "No tokens found in wallet") {
+                                            log(`Tokens were manually sold. Stopping monitoring for ${actionData.tokenAddress}`, true);
+                                            stopTokenMonitoring();
+                                        }
                                     }
                                 }
                             } catch (error) {
