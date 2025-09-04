@@ -1,0 +1,47 @@
+[2025-09-05T03:35:15.044] Found potential Solana address in message from VIP Call: cCWPpQoDxnkFtLa72h2QyiZcbYY1GLmcQDs6vAipump
+[2025-09-05T03:35:15.045] Waiting 30 seconds before re-verifying message for address cCWPpQoDxnkFtLa72h2QyiZcbYY1GLmcQDs6vAipump...
+[2025-09-05T03:35:20.047] -----------------------------------------------------------------
+[2025-09-05T03:35:20.049] Re-verifying message 356 in chat VIP Call for address cCWPpQoDxnkFtLa72h2QyiZcbYY1GLmcQDs6vAipump...
+[2025-09-05T03:35:20.585] lastMessageAddress ["cCWPpQoDxnkFtLa72h2QyiZcbYY1GLmcQDs6vAipump",null]
+[2025-09-05T03:35:20.587] Message for cCWPpQoDxnkFtLa72h2QyiZcbYY1GLmcQDs6vAipump verified. Proceeding to trading module.
+[2025-09-05T03:35:20.588] Attempting to handle purchase for token: cCWPpQoDxnkFtLa72h2QyiZcbYY1GLmcQDs6vAipump
+[2025-09-05T03:35:20.589] Attempting to purchase cCWPpQoDxnkFtLa72h2QyiZcbYY1GLmcQDs6vAipump with 0.3 SOL.
+[2025-09-05T03:35:20.590] Slippage: 2000 bps, Amount (Lamports): 300000000
+[2025-09-05T03:35:20.591] Compute Unit Price (microLamports): 500000, Compute Unit Limit: 200000
+[2025-09-05T03:35:20.592] Purchase attempt 1/3 for token: cCWPpQoDxnkFtLa72h2QyiZcbYY1GLmcQDs6vAipump
+[2025-09-05T03:35:20.892] Wallet balance: 0.49839844 SOL
+[2025-09-05T03:35:20.893] Getting quote from: https://quote-api.jup.ag/v6/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=cCWPpQoDxnkFtLa72h2QyiZcbYY1GLmcQDs6vAipump&amount=300000000&slippageBps=2000
+[2025-09-05T03:35:21.248] Quote response: {"inputMint":"So11111111111111111111111111111111111111112","inAmount":"300000000","outputMint":"cCWPpQoDxnkFtLa72h2QyiZcbYY1GLmcQDs6vAipump","outAmount":"383023644163","otherAmountThreshold":"306418915331","swapMode":"ExactIn","slippageBps":2000,"platformFee":null,"priceImpactPct":"0.0053188631941509629195437442","routePlan":[{"swapInfo":{"ammKey":"BdN45NJP5GSMU8XYo1CuPEBJV49kwYPihfbS4Cu7wVET","label":"Pump.fun Amm","inputMint":"So11111111111111111111111111111111111111112","outputMint":"cCWPpQoDxnkFtLa72h2QyiZcbYY1GLmcQDs6vAipump","inAmount":"300000000","outAmount":"383023644163","feeAmount":"3600000","feeMint":"So11111111111111111111111111111111111111112"},"percent":100,"bps":10000}],"contextSlot":364648015,"timeTaken":0.000519917,"swapUsdValue":"61.419248980983003615014156523","simplerRouteUsed":false,"mostReliableAmmsQuoteReport":{"info":{"BdN45NJP5GSMU8XYo1CuPEBJV49kwYPihfbS4Cu7wVET":"383023644163","Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE":"Not used RG: FullLiquidIntermediate, contains ALT: true"}},"useIncurredSlippageForQuoting":null,"otherRoutePlans":null,"aggregatorVersion":null,"loadedLongtailToken":false}
+[2025-09-05T03:35:21.251] Best route found with price impact: 0.0053188631941509629195437442%
+[2025-09-05T03:35:21.252] Expected output amount: 383023644163
+[2025-09-05T03:35:21.604] Transaction deserialized successfully
+[2025-09-05T03:35:21.612] Transaction signed successfully
+[2025-09-05T03:35:21.709] Sending transaction...
+[2025-09-05T03:35:21.807] Transaction sent with signature: yiyQopCfqKdzZyRf7s9RYuBU5RpWENSjpHKvFEswSW8B5AVPpFqEc4jgFjRyJvMLr86KjtzfNysNB3HpGxj8fQY
+[2025-09-05T03:35:30.025] Purchase transaction confirmed: {"context":{"slot":364648036},"value":{"err":null}}
+[2025-09-05T03:35:30.027] Swap successful! Transaction signature: yiyQopCfqKdzZyRf7s9RYuBU5RpWENSjpHKvFEswSW8B5AVPpFqEc4jgFjRyJvMLr86KjtzfNysNB3HpGxj8fQY
+[2025-09-05T03:35:30.028] View transaction: https://solscan.io/tx/yiyQopCfqKdzZyRf7s9RYuBU5RpWENSjpHKvFEswSW8B5AVPpFqEc4jgFjRyJvMLr86KjtzfNysNB3HpGxj8fQY
+[2025-09-05T03:35:30.517] Current wallet balance for cCWPpQoDxnkFtLa72h2QyiZcbYY1GLmcQDs6vAipump: 372640246531
+[2025-09-05T03:35:30.519] Expected token amount: 383023644163
+[2025-09-05T03:35:30.520] Actual token balance after purchase: 372640246531
+[2025-09-05T03:35:30.522] Token cCWPpQoDxnkFtLa72h2QyiZcbYY1GLmcQDs6vAipump purchased at 2025-09-04T17:35:30.521Z
+[2025-09-05T03:35:30.523] Message received at: 2025-09-04T17:35:13.000Z
+[2025-09-05T03:35:30.524] Purchase price: $0.0001651731 USD per token
+[2025-09-05T03:35:30.525] Starting token monitoring
+[2025-09-05T03:35:30.527] Starting token monitoring...
+[2025-09-05T03:35:41.105] startTokenMonitoring - Current price: $0.0001630870 USD per token
+[2025-09-05T03:37:51.102] startTokenMonitoring - Current price: $0.0000045944 USD per token
+[2025-09-05T03:39:51.120] startTokenMonitoring - Current price: $0.0000047705 USD per token
+[2025-09-05T03:42:01.251] startTokenMonitoring - Current price: $0.0000047630 USD per token
+[2025-09-05T03:44:11.140] startTokenMonitoring - Current price: $0.0000047006 USD per token
+[2025-09-05T03:46:11.154] startTokenMonitoring - Current price: $0.0000047781 USD per token
+[2025-09-05T03:48:21.151] startTokenMonitoring - Current price: $0.0000047662 USD per token
+[2025-09-05T03:50:21.273] startTokenMonitoring - Current price: $0.0000046794 USD per token
+[2025-09-05T03:52:31.131] startTokenMonitoring - Current price: $0.0000047392 USD per token
+[2025-09-05T03:54:31.303] startTokenMonitoring - Current price: $0.0000047469 USD per token
+[2025-09-05T03:56:41.140] startTokenMonitoring - Current price: $0.0000047292 USD per token
+[2025-09-05T03:58:41.147] startTokenMonitoring - Current price: $0.0000046071 USD per token
+[2025-09-05T04:00:41.270] startTokenMonitoring - Current price: $0.0000045826 USD per token
+[2025-09-05T04:02:51.284] startTokenMonitoring - Current price: $0.0000050318 USD per token
+[2025-09-05T04:05:01.291] startTokenMonitoring - Current price: $0.0000050866 USD per token
+[2025-09-05T04:07:11.301] startTokenMonitoring - Current price: $0.0000050660 USD per token
