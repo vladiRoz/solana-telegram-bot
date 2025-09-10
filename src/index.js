@@ -14,7 +14,7 @@ const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 
 /**
 
- * @param {Object} options - Optional configuration overrides for testing
+ * @param {Object} options - Optional configuration overrides for testin
  * @param {Object} options.config - Configuration object override
  * @param {Object} options.connection - Solana connection override
  * @param {Object} options.solanaTrader - SolanaTrader instance override
