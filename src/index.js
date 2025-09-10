@@ -13,7 +13,7 @@ const configPath = path.resolve(__dirname, "../config/config.json"); // Adjusted
 const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 
 /**
- * Initialize and start the trading bot application
+
  * @param {Object} options - Optional configuration overrides for testing
  * @param {Object} options.config - Configuration object override
  * @param {Object} options.connection - Solana connection override
