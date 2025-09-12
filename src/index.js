@@ -7,6 +7,7 @@ const { setMessageHandler, startClient, stopClient } = require("./modules/telegr
 const { processMessage } = require("./modules/messageProcessor");
 const SolanaTrader = require("./modules/solanaTrader");
 const { startTokenMonitoring, stopTokenMonitoring } = require("./modules/tokenMonitoring");
+const RugPullMonitoring = require("./modules/rugPullMonitoring");
 const { log } = require("./utils/logger");
 
 const configPath = path.resolve(__dirname, "../config/config.json"); // Adjusted path for src directory
@@ -50,6 +51,10 @@ async function initializeApplication(options = {}) {
         log(`Connected to Solana RPC: ${connection.rpcEndpoint}`);
 
         const solanaTrader = options.solanaTrader || new SolanaTrader(process.env.SOLANA_WALLET_PRIVATE_KEY, connection);
+        const rugPullMonitor = new RugPullMonitoring();
+        
+        // Set global reference for cleanup
+        globalRugPullMonitor = rugPullMonitor;
 
         log("Initializing Telegram message handler...", true);
 
@@ -64,30 +69,49 @@ async function initializeApplication(options = {}) {
                     const purchaseResult = await solanaTrader.handlePurchase(address, msg);
                     if (purchaseResult.success) {
                         log("Starting token monitoring", true);
-                        // Start token monitoring with action callback
-                        startTokenMonitoring(connection, async (action, actionData) => {
+                        
+                        // Create action callback to handle both monitoring types
+                        const monitoringActionCallback = async (action, actionData) => {
                             try {
                                 if (action === "SELL") {
-                                    log(`Monitoring triggered SELL action for ${actionData.tokenAddress}: ${actionData.reason}`, true);
-                                    const sellResult = await solanaTrader.handleSell(actionData.tokenAddress, actionData.reason);
+                                    const reason = actionData.reason || "Monitoring triggered";
+                                    log(`Monitoring triggered SELL action for ${actionData.tokenAddress}: ${reason}`, true);
+                                    
+                                    // Stop both monitoring systems before selling
+                                    if (actionData.rugPullDetected) {
+                                        log("Rug pull detected - stopping all monitoring immediately", true);
+                                        rugPullMonitor.stopMonitoring();
+                                        stopTokenMonitoring();
+                                    }
+
+                                    const sellResult = await solanaTrader.handleSell(actionData.tokenAddress, reason);
 
                                     if (sellResult.success) {
                                         log(`Sell completed successfully: ${sellResult.message}`, true);
                                         stopTokenMonitoring();
+                                        rugPullMonitor.stopMonitoring();
                                     } else {
                                         log(`Sell failed: ${sellResult.message}`, true);
 
                                         // Stop monitoring if tokens were manually sold (not in wallet)
                                         if (sellResult.message === "No tokens found in wallet") {
-                                            log(`Tokens were manually sold. Stopping monitoring for ${actionData.tokenAddress}`, true);
+                                            log(`Tokens were manually sold. Stopping all monitoring for ${actionData.tokenAddress}`, true);
                                             stopTokenMonitoring();
+                                            rugPullMonitor.stopMonitoring();
                                         }
                                     }
                                 }
                             } catch (error) {
                                 log(`Error handling monitoring action ${action}: ${error.message}`, true);
                             }
-                        });
+                        };
+
+                        // Start token monitoring with unified callback
+                        startTokenMonitoring(connection, monitoringActionCallback);
+                        
+                        // Start rug pull monitoring with unified callback
+                        log("Starting rug pull monitoring", true);
+                        rugPullMonitor.startMonitoring(address, msg.chat.title, monitoringActionCallback);
                     }
                 }
 
@@ -106,6 +130,7 @@ async function initializeApplication(options = {}) {
         return {
             connection,
             solanaTrader,
+            rugPullMonitor,
             config: appConfig
         };
 
@@ -119,10 +144,16 @@ async function main() {
     await initializeApplication();
 }
 
+// Store rugPullMonitor for cleanup - will be set during initialization
+let globalRugPullMonitor = null;
+
 // Ensure proper cleanup on exit
 process.on("SIGINT", async () => {
     log("Shutting down...");
     stopTokenMonitoring();
+    if (globalRugPullMonitor) {
+        globalRugPullMonitor.stopMonitoring();
+    }
     await stopClient();
     process.exit(0);
 });
@@ -130,6 +161,9 @@ process.on("SIGINT", async () => {
 process.on("SIGTERM", async () => {
     log("Shutting down...");
     stopTokenMonitoring();
+    if (globalRugPullMonitor) {
+        globalRugPullMonitor.stopMonitoring();
+    }
     await stopClient();
     process.exit(0);
 });

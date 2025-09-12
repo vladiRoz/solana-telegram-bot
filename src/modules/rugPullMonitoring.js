@@ -113,7 +113,10 @@ class RugPullMonitoring {
             return;
         }
 
-        log(`URGENT: Rug pull detected for ${this.monitoredToken}. Reason: ${reason}`, true);
+        // Store token address before stopping monitoring (which sets it to null)
+        const tokenAddress = this.monitoredToken;
+
+        log(`URGENT: Rug pull detected for ${tokenAddress}. Reason: ${reason}`, true);
         log(`Triggering immediate sell to minimize losses...`, true);
 
         // Stop monitoring as we've detected the issue
@@ -122,7 +125,7 @@ class RugPullMonitoring {
         // Trigger the sell action through callback
         if (actionCallback && typeof actionCallback === 'function') {
             actionCallback('SELL', {
-                tokenAddress: this.monitoredToken,
+                tokenAddress: tokenAddress,
                 reason: `RUG PULL PROTECTION: ${reason}`,
                 urgent: true,
                 rugPullDetected: true
