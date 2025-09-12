@@ -1,5 +1,25 @@
 const fs = require('fs');
 
+// Mock fs.readFileSync early to catch all config reads
+const mockConfig = {
+  telegram_channels: ['Test Channel'],
+  solana_rpc_endpoint: 'https://api.mainnet-beta.solana.com',
+  trading_settings: {
+    slippage_bps: 2000,
+    compute_unit_price_micro_lamports: 500000,
+    compute_unit_limit: 200000,
+    purchase_amount_sol: 0.02,
+    take_profit_percentage: 70
+  }
+};
+
+jest.spyOn(fs, 'readFileSync').mockImplementation((filePath) => {
+  if (filePath.includes('config.json')) {
+    return JSON.stringify(mockConfig);
+  }
+  return jest.requireActual('fs').readFileSync(filePath, 'utf8');
+});
+
 // Mock telegram session before any imports
 jest.mock('telegram/sessions', () => ({
   StringSession: jest.fn().mockImplementation(() => ({
@@ -43,7 +63,12 @@ jest.mock('dotenv', () => ({
 }));
 
 // Mock all dependencies before requiring index.js
-jest.mock('../telegramListener');
+jest.mock('../telegramListener', () => ({
+  setMessageHandler: jest.fn(),
+  startClient: jest.fn(),
+  stopClient: jest.fn(),
+  getLastMessage: jest.fn()
+}));
 jest.mock('../messageProcessor');
 jest.mock('../solanaTrader');
 jest.mock('../tokenMonitoring', () => ({
@@ -51,6 +76,14 @@ jest.mock('../tokenMonitoring', () => ({
   startTokenMonitoring: jest.fn(),
   stopTokenMonitoring: jest.fn()
 })); // Partially mock - keep executeMonitoringCycle real
+jest.mock('../rugPullMonitoring', () => {
+  return jest.fn().mockImplementation(() => ({
+    startMonitoring: jest.fn(),
+    stopMonitoring: jest.fn(),
+    getStatus: jest.fn(),
+    isMonitoringActive: jest.fn()
+  }));
+});
 jest.mock('../../utils/utils');
 jest.mock('../../utils/logger');
 jest.mock('../../utils/tokenState');
@@ -67,7 +100,7 @@ jest.mock('@solana/web3.js', () => ({
 }));
 
 // Import mocked modules
-const { setMessageHandler, startClient, stopClient } = require('../telegramListener');
+const { setMessageHandler, startClient, stopClient, getLastMessage } = require('../telegramListener');
 const { processMessage } = require('../messageProcessor');
 const SolanaTrader = require('../solanaTrader');
 const { startTokenMonitoring, stopTokenMonitoring, executeMonitoringCycle } = require('../tokenMonitoring');
@@ -100,7 +133,7 @@ describe('Index.js Integration Test', () => {
         take_profit_percentage: 70
       }
     };
-
+    
     await initializeApplication({
       config: mockConfig,
       connection: mockConnection,
@@ -116,26 +149,6 @@ describe('Index.js Integration Test', () => {
     process.env.TELEGRAM_APP_API_HASH = 'test_hash';
     process.env.TELEGRAM_STRING_SESSION = 'mock-session-string';
     process.env.SOLANA_WALLET_PRIVATE_KEY = JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64]);
-
-    // Mock config file reading
-    const mockConfig = {
-      telegram_channels: ['Test Channel'],
-      solana_rpc_endpoint: 'https://api.mainnet-beta.solana.com',
-      trading_settings: {
-        slippage_bps: 2000,
-        compute_unit_price_micro_lamports: 500000,
-        compute_unit_limit: 200000,
-        purchase_amount_sol: 0.02,
-        take_profit_percentage: 70
-      }
-    };
-
-    jest.spyOn(fs, 'readFileSync').mockImplementation((filePath) => {
-      if (filePath.includes('config.json')) {
-        return JSON.stringify(mockConfig);
-      }
-      return '';
-    });
   });
 
   beforeEach(() => {
@@ -173,6 +186,13 @@ describe('Index.js Integration Test', () => {
     });
     startClient.mockResolvedValue();
     stopClient.mockResolvedValue();
+    
+    // Mock getLastMessage to return messages that contain the token address
+    getLastMessage.mockResolvedValue([
+      `Message with token ${testTokenAddress}`,
+      'Another message',
+      `Buy this token: ${testTokenAddress}`
+    ]);
 
     // Mock message processor
     processMessage.mockResolvedValue(testTokenAddress);
@@ -231,6 +251,9 @@ describe('Index.js Integration Test', () => {
     // Verify that message handler is set
     expect(setMessageHandler).toHaveBeenCalledWith(expect.any(Function));
     expect(startClient).toHaveBeenCalled();
+    
+    // Verify that message handler is properly captured
+    expect(messageHandler).toBeDefined();
 
     // Step 4: Simulate incoming message with token address
     const mockMessage = {
@@ -256,6 +279,8 @@ describe('Index.js Integration Test', () => {
 
     // Step 6: Verify handlePurchase was called
     expect(mockSolanaTrader.handlePurchase).toHaveBeenCalledWith(testTokenAddress, mockMessage);
+
+    // Verify the message handler flow worked correctly
 
     // Step 7: Set up tokenState to simulate a purchased token for monitoring
     const mockPurchasedToken = {
@@ -290,7 +315,7 @@ describe('Index.js Integration Test', () => {
     );
 
     // Step 10: Verify the complete flow executed successfully
-    expect(log).toHaveBeenCalledWith(`Message for ${testTokenAddress} verified. Proceeding to trading module.`);
+    expect(log).toHaveBeenCalledWith(`Message for ${testTokenAddress} verified. Proceeding to trading module.`, true);
     expect(log).toHaveBeenCalledWith('Starting token monitoring', true);
     expect(log).toHaveBeenCalledWith(
       `Monitoring triggered SELL action for ${testTokenAddress}: Take profit - 70% gain`,

@@ -47,7 +47,7 @@ class RugPullMonitoring {
                 log(`Rug pull monitoring completed for ${tokenAddress} after 5 minutes - no rug pull detected`, true);
                 this.stopMonitoring();
             }
-        }, 300000); // 5 minutes = 300,000 milliseconds
+        }, 150000); // 2.5 minutes = 150,000 milliseconds
     }
 
     /**
@@ -82,7 +82,7 @@ class RugPullMonitoring {
                 .map(msg => extractSolanaAddresses(msg))
                 .filter(addr => addr !== null);
 
-            log(`Rug pull check: Found ${recentAddresses.length} token addresses in recent messages`, false);
+            log(`Rug pull check: Found ${recentAddresses.length} token addresses in recent messages`, true);
 
             // Check if our monitored token address is still present
             if (!recentAddresses.includes(this.monitoredToken)) {
@@ -91,7 +91,7 @@ class RugPullMonitoring {
                 return;
             }
 
-            log(`Token ${this.monitoredToken} still present in chat messages - no rug pull detected yet`, false);
+            log(`Token ${this.monitoredToken} still present in chat messages - no rug pull detected yet`, true);
 
         } catch (error) {
             log(`Error checking for rug pull: ${error.message}`, true);
