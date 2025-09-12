@@ -13,6 +13,8 @@ const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 // Function to be called by index.js to pass the message handler
 let messageHandlerCallback = null;
 let client = null;
+// Cache for chat entities to avoid repeated getDialogs() calls
+const chatEntityCache = new Map();
 
 // Config values from .env
 const apiId = parseInt(process.env.TELEGRAM_APP_API_ID || '0');
@@ -184,7 +186,9 @@ async function stopClient() {
     try {
         await client.disconnect();
         client = null;
-        log('Telegram client has been disconnected');
+        // Clear chat entity cache when client stops
+        chatEntityCache.clear();
+        log('Telegram client has been disconnected and chat cache cleared');
     } catch (error) {
         log('Error stopping client: ' + error);
     }
@@ -205,17 +209,28 @@ async function getLastMessage(chatIdentifier) {
         // Get the chat entity
         let chat;
         if (typeof chatIdentifier === 'number') {
-            // If it's a chat ID
+            // If it's a chat ID, use getEntity directly
             chat = await client.getEntity(chatIdentifier);
         } else {
-            // If it's a chat title, find it in the config channels
-            // Get all dialogs (chats)
-            const dialogs = await client.getDialogs();
-            chat = dialogs.find(dialog => dialog.title === chatIdentifier);
-
+            // If it's a chat title, check cache first
+            chat = chatEntityCache.get(chatIdentifier);
+            
             if (!chat) {
-                log(`Could not find channel with title: ${chatIdentifier}`);
-                return null;
+                // Cache miss - get all dialogs and find the chat
+                log(`Chat entity not cached for "${chatIdentifier}", fetching from dialogs...`);
+                const dialogs = await client.getDialogs();
+                chat = dialogs.find(dialog => dialog.title === chatIdentifier);
+
+                if (!chat) {
+                    log(`Could not find channel with title: ${chatIdentifier}`);
+                    return null;
+                }
+                
+                // Cache the chat entity for future use
+                chatEntityCache.set(chatIdentifier, chat);
+                log(`Cached chat entity for "${chatIdentifier}"`);
+            } else {
+                log(`Using cached chat entity for "${chatIdentifier}"`);
             }
         }
 
@@ -237,9 +252,18 @@ async function getLastMessage(chatIdentifier) {
     }
 }
 
+/**
+ * Clear the chat entity cache (useful for testing or cache refresh)
+ */
+function clearChatCache() {
+    chatEntityCache.clear();
+    log('Chat entity cache manually cleared');
+}
+
 module.exports = {
     setMessageHandler,
     startClient,
     stopClient,
-    getLastMessage
+    getLastMessage,
+    clearChatCache
 };

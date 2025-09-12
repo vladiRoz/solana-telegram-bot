@@ -67,7 +67,8 @@ jest.mock('../telegramListener', () => ({
   setMessageHandler: jest.fn(),
   startClient: jest.fn(),
   stopClient: jest.fn(),
-  getLastMessage: jest.fn()
+  getLastMessage: jest.fn(),
+  clearChatCache: jest.fn()
 }));
 jest.mock('../messageProcessor');
 jest.mock('../solanaTrader');
