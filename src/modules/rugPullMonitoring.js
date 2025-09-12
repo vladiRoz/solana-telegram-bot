@@ -82,8 +82,6 @@ class RugPullMonitoring {
                 .map(msg => extractSolanaAddresses(msg))
                 .filter(addr => addr !== null);
 
-            log(`Rug pull check: Found ${recentAddresses.length} token addresses in recent messages`, true);
-
             // Check if our monitored token address is still present
             if (!recentAddresses.includes(this.monitoredToken)) {
                 log(`RUG PULL DETECTED! Token ${this.monitoredToken} address no longer found in recent messages from ${this.chatTitle}`, true);

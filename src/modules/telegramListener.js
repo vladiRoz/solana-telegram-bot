@@ -229,8 +229,6 @@ async function getLastMessage(chatIdentifier) {
                 // Cache the chat entity for future use
                 chatEntityCache.set(chatIdentifier, chat);
                 log(`Cached chat entity for "${chatIdentifier}"`);
-            } else {
-                log(`Using cached chat entity for "${chatIdentifier}"`);
             }
         }
 
